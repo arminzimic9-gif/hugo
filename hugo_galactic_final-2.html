@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUGO: GALACTIC INSANITY - ULTIMATE EDITION</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;700;900&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --red: #e8000a; --red-bright: #ff1a24; --gold: #ffd700; --blue: #00f2ff; --green: #00ff88; --purple: #bc13fe; --black: #0a0a0a;
+    --ui-bg: rgba(10, 10, 10, 0.95); --ui-border: rgba(232, 0, 10, 0.5);
+  }
+
+  html, body { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Barlow Condensed', sans-serif; color: #fff; user-select: none; }
+  #canvas { display: block; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+  .overlay { position: fixed; inset: 0; z-index: 1; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E"); mix-blend-mode: overlay; opacity: 0.4; }
+  .scanlines { position: fixed; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1)); background-size: 100% 4px; opacity: 0.15; }
+
+  body.game-active { cursor: none; }
+  #cursor { position: fixed; width: 24px; height: 24px; border: 2px solid var(--red-bright); border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); display: none; justify-content: center; align-items: center; box-shadow: 0 0 15px var(--red); }
+  body.game-active #cursor { display: flex; }
+  #cursor::after { content: ''; width: 8px; height: 8px; background: var(--red); border-radius: 50%; }
+
+  .screen { position: fixed; inset: 0; z-index: 100; background: #000; display: flex; justify-content: center; align-items: center; flex-direction: column; transition: opacity 0.5s; }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  .login-box { text-align: center; background: var(--ui-bg); padding: 40px; border: 1px solid var(--ui-border); box-shadow: 0 0 50px rgba(232, 0, 10, 0.1); }
+  .login-title { font-family: 'Bebas Neue', cursive; font-size: 60px; color: var(--red-bright); letter-spacing: 10px; margin-bottom: 20px; }
+  input { background: #111; border: 1px solid #333; color: #fff; padding: 15px; width: 300px; font-family: 'Barlow Condensed', sans-serif; font-size: 18px; text-align: center; letter-spacing: 2px; outline: none; transition: border-color 0.3s; cursor: text; }
+  input:focus { border-color: var(--red-bright); }
+
+  .planet-container { display: flex; gap: 60px; max-width: 1200px; padding: 40px; overflow-x: auto; scrollbar-width: none; }
+  .planet-card { min-width: 220px; text-align: center; cursor: pointer; transition: transform 0.3s; position: relative; }
+  .planet-card.locked { opacity: 0.2; cursor: not-allowed; filter: grayscale(1); }
+  .planet-card:not(.locked):hover { transform: scale(1.1); }
+  .planet-sphere { width: 140px; height: 140px; border-radius: 50%; margin: 0 auto 25px; position: relative; box-shadow: inset -25px -25px 60px rgba(0,0,0,0.9); transition: all 0.3s; border: 1px solid rgba(255,255,255,0.1); }
+  .planet-card:not(.locked):hover .planet-sphere { box-shadow: inset -25px -25px 60px rgba(0,0,0,0.9), 0 0 40px var(--color); border-color: var(--color); }
+  .planet-ring { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotateX(75deg); border: 3px solid rgba(255,255,255,0.15); border-radius: 50%; width: 220px; height: 220px; pointer-events: none; transition: all 0.3s; }
+  .planet-card:not(.locked):hover .planet-ring { border-color: var(--color); width: 240px; height: 240px; opacity: 0.8; }
+
+  #ui-layer { position: fixed; inset: 0; z-index: 10; pointer-events: none; padding: 20px; display: none; flex-direction: column; justify-content: space-between; }
+  .top-bar { display: flex; justify-content: space-between; align-items: flex-start; }
+  .stats-box { background: var(--ui-bg); border-left: 4px solid var(--red); padding: 10px 20px; backdrop-filter: blur(10px); min-width: 150px; }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--red-bright); }
+  .value { font-family: 'Bebas Neue', cursive; font-size: 32px; line-height: 1; }
+
+  .btn { background: transparent; border: 2px solid var(--red-bright); color: var(--red-bright); padding: 12px 40px; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; text-transform: uppercase; letter-spacing: 4px; cursor: pointer; transition: all 0.3s; pointer-events: auto; margin-top: 20px; }
+  .btn:hover { background: var(--red-bright); color: #000; }
+
+  #mobile-block { background: #000; color: var(--red-bright); text-align: center; padding: 40px; z-index: 10000; display: none; }
+  #fever-bar { position: fixed; bottom: 0; left: 0; height: 10px; background: var(--gold); width: 0%; z-index: 20; box-shadow: 0 0 20px var(--gold); }
+</style>
+</head>
+<body>
+
+<div id="mobile-block" class="screen">
+  <div class="login-title">ACCESS DENIED</div>
+  <p style="letter-spacing: 5px; margin-top: 20px;">SYSTEM OPTIMIZED FOR PC TERMINALS ONLY</p>
+</div>
+
+<div id="login-screen" class="screen">
+  <div class="login-box">
+    <div class="login-title">IDENTIFY YOURSELF</div>
+    <input type="text" id="username-input" placeholder="ENTER USERNAME" maxlength="12">
+    <br>
+    <button class="btn" id="login-btn">INITIALIZE SESSION</button>
+  </div>
+</div>
+
+<div id="selector-screen" class="screen hidden">
+  <div class="login-title" style="margin-bottom: 50px;">SELECT SECTOR</div>
+  <div class="planet-container" id="planet-list"></div>
+  <button class="btn" id="back-to-login" style="margin-top: 50px; border-color: #444; color: #444;">LOGOUT</button>
+</div>
+
+<canvas id="canvas"></canvas>
+<div class="overlay"></div>
+<div class="scanlines"></div>
+<div id="cursor"></div>
+<div id="fever-bar"></div>
+
+<div id="ui-layer">
+  <div class="top-bar">
+    <div class="stats-box">
+      <div class="label" id="user-display">USER: HUGO</div>
+      <div class="value" id="score-val">000000</div>
+    </div>
+    <div class="combo-container" style="text-align: center; position: absolute; left: 50%; transform: translateX(-50%);">
+      <div id="combo-val" style="font-family: 'Bebas Neue', cursive; font-size: 70px; color: var(--gold); opacity: 0;">0X</div>
+    </div>
+    <div class="stats-box" style="text-align: right;">
+      <div class="label" id="planet-label">PLANET: CYBERIA</div>
+      <div class="value" id="level-val">L01 | NEURAL</div>
+    </div>
+  </div>
+  <div class="bottom-bar">
+    <div class="message-box" id="status-msg" style="background: var(--ui-bg); padding: 5px 20px; font-size: 12px; letter-spacing: 2px;">Initializing...</div>
+  </div>
+</div>
+
+<div id="modal" class="screen hidden" style="background: rgba(0,0,0,0.9);">
+  <div class="modal-content" style="text-align: center;">
+    <div class="modal-title" id="modal-title">PHASE CLEAR</div>
+    <div class="modal-stats" id="modal-stats" style="font-size: 24px; margin: 20px 0; letter-spacing: 4px;"></div>
+    <button class="btn" id="start-btn">NEXT PHASE</button>
+    <button class="btn" id="exit-btn" style="border-color: #444; color: #444; margin-left: 10px;">SECTOR MAP</button>
+  </div>
+</div>
+
+<script>
+if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+  document.getElementById('mobile-block').style.display = 'flex';
+  document.getElementById('login-screen').style.display = 'none';
+}
+
+let audioCtx;
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playSound(freq, type, duration, vol = 0.15) {
+  if (!audioCtx || audioCtx.state === 'suspended') return;
+  const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+  osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(freq / 2, audioCtx.currentTime + duration);
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + duration);
+}
+const sounds = {
+  hit: () => playSound(400, 'sine', 0.15, 0.2),
+  special: () => playSound(800, 'sine', 0.3, 0.2),
+  levelUp: () => { playSound(400, 'sawtooth', 0.3, 0.15); setTimeout(() => playSound(600, 'sawtooth', 0.3, 0.15), 100); },
+  explosion: () => playSound(50, 'sawtooth', 0.8, 0.3),
+  rocket: () => playSound(150, 'square', 0.4, 0.1)
+};
+
+const PLANETS = [
+  { id: 1, name: "CYBERIA", color: "#00f2ff", bg: "grid" },
+  { id: 2, name: "MAGMA PRIME", color: "#ff1a24", bg: "plasma" },
+  { id: 3, name: "VOID NEXUS", color: "#bc13fe", bg: "void" },
+  { id: 4, name: "QUANTUM CORE", color: "#00ff88", bg: "matrix" },
+  { id: 5, name: "OMEGA STATION", color: "#ffffff", bg: "warp" }
+];
+
+let userData = { name: "", unlockedPlanets: [1], highScores: {} };
+let gameState = {
+  active: false, score: 0, planet: 1, level: 1, targetsDestroyed: 0, targetsNeeded: 5,
+  levelType: 'ninja', combo: 0, maxCombo: 0,
+  slowMo: 0, multiScore: 0, autoSlicer: 0, rocketRain: 0, bonusMode: false,
+  timeRemaining: 0, gameOver: false, fever: 0, feverActive: false
+};
+
+let cubes = []; let powerUps = []; let particles = []; let stars = []; let rockets = [];
+const canvas = document.getElementById('canvas'); const ctx = canvas.getContext('2d');
+let W, H, tick = 0, shake = 0;
+const mouse = { x: -9999, y: -9999, prevX: 0, prevY: 0 };
+
+function saveGame() { localStorage.setItem('hugo_galactic_save_' + userData.name, JSON.stringify(userData)); }
+function loadGame(name) {
+  const saved = localStorage.getItem('hugo_galactic_save_' + name);
+  if (saved) userData = JSON.parse(saved);
+  else { userData = { name, unlockedPlanets: [1], highScores: {} }; saveGame(); }
+}
+
+document.getElementById('login-btn').onclick = () => {
+  const name = document.getElementById('username-input').value.trim().toUpperCase();
+  if (!name) return;
+  initAudio();
+  userData.name = name;
+  loadGame(name);
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('selector-screen').classList.remove('hidden');
+  renderPlanetSelector();
+};
+
+function renderPlanetSelector() {
+  const list = document.getElementById('planet-list');
+  list.innerHTML = '';
+  PLANETS.forEach(p => {
+    const isLocked = !userData.unlockedPlanets.includes(p.id);
+    const card = document.createElement('div');
+    card.className = `planet-card ${isLocked ? 'locked' : ''}`;
+    card.innerHTML = `
+      <div class="planet-sphere" style="background: radial-gradient(circle at 30% 30%, ${p.color}, #000); --color: ${p.color}">
+        <div class="planet-ring"></div>
+      </div>
+      <div class="label" style="color: ${p.color}">${isLocked ? 'LOCKED' : 'SECTOR ' + p.id}</div>
+      <div class="value" style="font-size: 24px;">${p.name}</div>
+    `;
+    if (!isLocked) card.onclick = () => startPlanet(p.id);
+    list.appendChild(card);
+  });
+}
+
+function startPlanet(id) {
+  gameState.planet = id; gameState.level = 1;
+  document.getElementById('selector-screen').classList.add('hidden');
+  document.getElementById('ui-layer').style.display = 'flex';
+  document.getElementById('user-display').innerText = "USER: " + userData.name;
+  document.body.classList.add('game-active');
+  startLevel();
+}
+
+function createCube(isTarget = true, type = 'ninja', gridX = 0, gridY = 0, isMine = false, special = null) {
+  const p = PLANETS[gameState.planet-1];
+  let color = isMine ? '#333' : p.color;
+  if (special === 'gold') color = '#ffd700';
+  return {
+    x: type === 'ninja' ? Math.random() * (W - 200) + 100 : (type === 'bonus' ? W + 100 : gridX),
+    y: type === 'ninja' ? H + 100 : (type === 'bonus' ? Math.random()*(H-200)+100 : gridY),
+    vx: type === 'ninja' ? (Math.random() - 0.5) * 6 : (type === 'bonus' ? -12 - gameState.level : 0),
+    vy: type === 'ninja' ? -Math.random() * 10 - 12 : 0,
+    gravity: type === 'ninja' ? 0.3 : 0,
+    isTarget, destroyed: false, explodeT: 0, coreAngle: Math.random()*Math.PI*2, rotSpeed: (Math.random()-0.5)*0.1,
+    color, type, isMine, special
+  };
+}
+
+let spawnTimeout;
+function spawnLogic() {
+  if (!gameState.active || gameState.gameOver) return;
+  if (gameState.bonusMode || gameState.levelType === 'bonus') {
+    if (cubes.filter(c => !c.destroyed).length < 10) cubes.push(createCube(true, 'bonus'));
+  } else if (gameState.levelType === 'ninja') {
+    if (cubes.filter(c => !c.destroyed).length < 6 + gameState.level) {
+      const rand = Math.random();
+      if (rand < 0.15) cubes.push(createCube(false, 'ninja', 0, 0, true));
+      else if (rand < 0.20) cubes.push(createCube(true, 'ninja', 0, 0, false, 'gold'));
+      else cubes.push(createCube(true, 'ninja'));
+    }
+  }
+  if (Math.random() < 0.06) powerUps.push({
+    x: Math.random() * (W - 200) + 100, y: H + 100, vx: (Math.random() - 0.5) * 8, vy: -Math.random() * 12 - 15,
+    gravity: 0.2, radius: 30, type: ['slow','multi','auto','rocket'][Math.floor(Math.random()*4)], destroyed: false
+  });
+  clearTimeout(spawnTimeout);
+  spawnTimeout = setTimeout(spawnLogic, 700 - (gameState.level * 20));
+}
+
+function handleInput(x, y) {
+  if (!gameState.active || gameState.gameOver) return;
+  cubes.forEach(c => {
+    if (!c.destroyed && Math.sqrt((x - c.x)**2 + (y - c.y)**2) < 70) {
+      if (c.isMine) triggerGameOver("MINE DETONATED");
+      else destroyCube(c);
+    }
+  });
+  powerUps.forEach(p => {
+    if (!p.destroyed && Math.sqrt((x - p.x)**2 + (y - p.y)**2) < 60) { p.destroyed = true; activatePower(p); }
+  });
+}
+
+function destroyCube(c) {
+  c.destroyed = true; gameState.targetsDestroyed++; gameState.combo++;
+  let points = (c.special === 'gold' ? 500 : 100) * (1 + Math.floor(gameState.combo / 5));
+  if (gameState.feverActive) points *= 2;
+  gameState.score += points;
+  if (!gameState.feverActive) { gameState.fever += 2; if (gameState.fever >= 100) { gameState.feverActive = true; sounds.levelUp(); } }
+  sounds.hit(); createParticles(c.x, c.y, c.color);
+  updateComboUI(); shake = 10;
+  if (gameState.targetsDestroyed >= gameState.targetsNeeded && gameState.levelType !== 'static') completeLevel();
+  else if (gameState.levelType === 'static' && cubes.filter(cb => !cb.destroyed && !cb.isMine).length === 0) completeLevel();
+}
+
+function triggerGameOver(reason) {
+  gameState.active = false; gameState.gameOver = true;
+  sounds.explosion(); shake = 50;
+  document.getElementById('modal-title').innerText = "SYSTEM COLLAPSE";
+  document.getElementById('modal-stats').innerHTML = `<span style="color: var(--red-bright)">${reason}</span><br>SCORE: ${gameState.score}`;
+  document.getElementById('start-btn').innerText = "REBOOT LEVEL";
+  document.getElementById('modal').classList.remove('hidden');
+  document.body.classList.remove('game-active');
+}
+
+function activatePower(p) {
+  sounds.levelUp();
+  if (p.type === 'rocket') gameState.rocketRain = 300;
+  else if (p.type === 'slow') gameState.slowMo = 400;
+  else if (p.type === 'auto') gameState.autoSlicer = 400;
+  else if (p.type === 'multi') gameState.multiScore = 400;
+}
+
+const POWER_COLORS = {
+  slow: '#00f2ff',
+  multi: '#ffd700',
+  auto: '#00ff88',
+  rocket: '#ff1a24'
+};
+
+function updateComboUI() {
+  const el = document.getElementById('combo-val');
+  if (gameState.combo > 1) { el.innerText = gameState.combo + "X"; el.style.opacity = 1; }
+  else el.style.opacity = 0;
+}
+
+function completeLevel() {
+  gameState.active = false; sounds.levelUp();
+  const p = PLANETS[gameState.planet-1];
+  document.getElementById('modal-title').innerText = "PHASE CLEAR";
+  document.getElementById('modal-stats').innerHTML = `SECTOR: ${p.name} | SCORE: ${gameState.score}`;
+  if (gameState.level >= 10) {
+    if (!userData.unlockedPlanets.includes(gameState.planet + 1)) { userData.unlockedPlanets.push(gameState.planet + 1); saveGame(); }
+    document.getElementById('modal-title').innerText = "SECTOR SECURED";
+    document.getElementById('start-btn').innerText = "NEXT SECTOR";
+  } else {
+    gameState.level++;
+    document.getElementById('start-btn').innerText = "START L" + gameState.level;
+  }
+  document.getElementById('modal').classList.remove('hidden');
+  document.body.classList.remove('game-active');
+}
+
+function startLevel() {
+  gameState.active = true; gameState.targetsDestroyed = 0; gameState.combo = 0; cubes = []; powerUps = []; rockets = [];
+  if (gameState.gameOver) { gameState.fever = 0; gameState.feverActive = false; gameState.gameOver = false; }
+  document.getElementById('modal').classList.add('hidden'); 
+  document.body.classList.add('game-active');
+  updateComboUI();
+  const p = PLANETS[gameState.planet-1];
+  document.getElementById('planet-label').innerText = "PLANET: " + p.name;
+  if (gameState.level % 3 === 0) {
+    gameState.levelType = 'bonus'; gameState.targetsNeeded = 20 + gameState.level * 5;
+    document.getElementById('status-msg').innerText = "BONUS MODE: SLICE " + gameState.targetsNeeded;
+  } else if (gameState.level % 2 === 0) {
+    gameState.levelType = 'static'; buildStaticGrid();
+    gameState.timeRemaining = 15;
+    document.getElementById('status-msg').innerText = "TIME ATTACK: CLEAR ALL";
+  } else {
+    gameState.levelType = 'ninja'; gameState.targetsNeeded = 10 + gameState.level * 3;
+    document.getElementById('status-msg').innerText = "PROTOCOL: DESTROY " + gameState.targetsNeeded;
+  }
+  document.getElementById('level-val').innerText = `L${gameState.level.toString().padStart(2, '0')} | ${gameState.levelType.toUpperCase()}`;
+  spawnLogic();
+}
+
+function buildStaticGrid() {
+  const cols = 6, rows = 4;
+  const spacingX = W / (cols + 1), spacingY = H / (rows + 1);
+  for (let r = 1; r <= rows; r++) for (let c = 1; c <= cols; c++) {
+    const isMine = Math.random() < 0.1;
+    cubes.push(createCube(!isMine, 'static', c * spacingX, r * spacingY, isMine));
+  }
+}
+
+function createParticles(x, y, color) {
+  for(let i=0; i<10; i++) particles.push({ x, y, vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15, life: 1, color });
+}
+
+function poly(pts, fill, strokeCol) {
+  ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (strokeCol) { ctx.strokeStyle = strokeCol; ctx.lineWidth = 1; ctx.stroke(); }
+}
+
+const CW = 100, CH = 50, CD = 60;
+function draw() {
+  tick += 0.016; const dt = gameState.slowMo > 0 ? 0.3 : 1;
+  if (gameState.feverActive) { gameState.fever -= 0.2; if (gameState.fever <= 0) gameState.feverActive = false; }
+  document.getElementById('fever-bar').style.width = gameState.fever + '%';
+
+  ctx.save();
+  if (shake > 0) { ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake); shake *= 0.9; }
+  ctx.fillStyle = gameState.feverActive ? '#100' : '#050505'; ctx.fillRect(0, 0, W, H);
+  const p = PLANETS[gameState.planet-1] || PLANETS[0];
+  ctx.strokeStyle = p.color + '11';
+  for(let i=0; i<W; i+=100) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for(let i=0; i<H; i+=100) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+
+  if (gameState.active) {
+    document.getElementById('score-val').innerText = gameState.score.toString().padStart(6, '0');
+    if (gameState.levelType === 'static') {
+      gameState.timeRemaining -= 0.016;
+      document.getElementById('status-msg').innerText = `TIME REMAINING: ${Math.max(0, gameState.timeRemaining).toFixed(1)}s`;
+      if (gameState.timeRemaining <= 0) triggerGameOver("TIME EXPIRED");
+    }
+    if (gameState.rocketRain > 0) {
+      gameState.rocketRain--;
+      if (tick % 0.1 < 0.02) { rockets.push({ x: Math.random()*W, y: -50, vy: 15 }); sounds.rocket(); }
+    }
+    rockets.forEach((r, i) => {
+      r.y += 15; ctx.fillStyle = '#ff1a24'; ctx.fillRect(r.x-2, r.y, 4, 20);
+      cubes.forEach(c => { if (!c.destroyed && Math.sqrt((r.x-c.x)**2 + (r.y-c.y)**2) < 60) { if (c.isMine) triggerGameOver("ROCKET HIT MINE"); else destroyCube(c); rockets.splice(i, 1); } });
+      if (r.y > H) rockets.splice(i, 1);
+    });
+    particles.forEach((p, i) => {
+      p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+      if (p.life <= 0) particles.splice(i, 1);
+      else { ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fillRect(p.x, p.y, 3, 3); ctx.globalAlpha = 1; }
+    });
+    cubes.forEach((c, i) => {
+      if (!c.destroyed) {
+        c.x += c.vx * dt; c.y += c.vy * dt; c.vy += c.gravity * dt;
+        if (c.y > H + 200 || c.x < -200) { if (c.isTarget && !gameState.autoSlicer) { gameState.combo = 0; updateComboUI(); } cubes.splice(i, 1); return; }
+      } else { c.explodeT += 0.1 * dt; if (c.explodeT > 1) { cubes.splice(i, 1); return; } }
+      const ty = c.y - c.explodeT * 50; const lx = c.x - c.explodeT * 40; const rx = c.x + c.explodeT * 40;
+      const top = [{x:c.x, y:ty-CH/2}, {x:c.x+CW/2, y:ty}, {x:c.x, y:ty+CH/2}, {x:c.x-CW/2, y:ty}];
+      const left = [{x:lx-CW/2, y:c.y}, {x:lx, y:c.y+CH/2}, {x:lx, y:c.y+CH/2+CD}, {x:lx-CW/2, y:c.y+CD}];
+      const right = [{x:rx, y:c.y+CH/2}, {x:rx+CW/2, y:c.y}, {x:rx+CW/2, y:c.y+CD}, {x:rx, y:c.y+CH/2+CD}];
+      ctx.globalAlpha = 1 - c.explodeT;
+      poly(left, `rgba(20,20,20,1)`, `rgba(255,255,255,0.1)`); poly(right, `rgba(40,40,40,1)`, `rgba(255,255,255,0.1)`);
+      if (c.explodeT > 0.1) {
+        const coreGeom = []; for(let j=0; j<4; j++) { const a = c.coreAngle + (j*Math.PI/2); coreGeom.push({x: c.x + (Math.cos(a)-Math.sin(a))*CW/4, y: (c.y-c.explodeT*30) + (Math.cos(a)+Math.sin(a))*CH/4}); }
+        ctx.shadowColor = c.color; ctx.shadowBlur = 20; poly(coreGeom, c.color, '#fff'); ctx.shadowBlur = 0;
+      }
+      poly(top, c.destroyed ? '#fff' : (c.isMine ? '#ff1a24' : c.color), '#fff');
+      if (c.isMine) { ctx.fillStyle = '#fff'; ctx.font = '20px Arial'; ctx.fillText('!', c.x-5, c.y+5); }
+      ctx.globalAlpha = 1;
+    });
+    powerUps.forEach((p, i) => {
+      if (!p.destroyed) {
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.gravity * dt;
+        const col = POWER_COLORS[p.type] || '#fff';
+        ctx.shadowColor = col; ctx.shadowBlur = 20;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 30, 0, Math.PI*2);
+        ctx.fillStyle = col; ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.shadowBlur = 0;
+      } else powerUps.splice(i, 1);
+    });
+  }
+  ctx.restore();
+  const cursorEl = document.getElementById('cursor');
+  cursorEl.style.left = mouse.x + 'px'; cursorEl.style.top = mouse.y + 'px';
+  if (Math.abs(mouse.x - mouse.prevX) > 2 || Math.abs(mouse.y - mouse.prevY) > 2 || gameState.autoSlicer > 0) {
+    const el = document.createElement('div'); el.className = 'trail'; el.style.left = mouse.x + 'px'; el.style.top = mouse.y + 'px';
+    el.style.background = 'var(--red-bright)'; document.body.appendChild(el); setTimeout(() => el.remove(), 300);
+    handleInput(mouse.x, mouse.y);
+  }
+  mouse.prevX = mouse.x; mouse.prevY = mouse.y; requestAnimationFrame(draw);
+}
+
+window.addEventListener('resize', () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; });
+document.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+document.getElementById('start-btn').onclick = () => { startLevel(); };
+document.getElementById('exit-btn').onclick = () => { document.getElementById('modal').classList.add('hidden'); document.getElementById('ui-layer').style.display = 'none'; document.getElementById('selector-screen').classList.remove('hidden'); renderPlanetSelector(); };
+document.getElementById('back-to-login').onclick = () => { document.getElementById('selector-screen').classList.add('hidden'); document.getElementById('login-screen').classList.remove('hidden'); };
+W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
+draw();
+</script>
+</body>
+</html>
