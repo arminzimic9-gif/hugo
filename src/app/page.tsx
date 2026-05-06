@@ -170,6 +170,8 @@ export default function LoginTerminal() {
     e.preventDefault();
     if (!input.trim()) return;
     setLoading(true);
+    // Avatar System: Generating System Architect model
+    console.log(`Generating System Architect model for: ${input}`);
     setTimeout(() => { login(input.toUpperCase()); router.push("/hub"); }, 1200);
   };
 

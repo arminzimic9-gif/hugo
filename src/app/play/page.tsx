@@ -26,7 +26,7 @@ const BOSS_PROFILES: Record<number, { name: string; color: string; accent: strin
 
 export default function PlayArea() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { username, currentCampaignLevel, stats, addScore, addXp, addCredits, completeLevel, setReplayLevel } = useGameStore();
+  const { username, currentCampaignLevel, stats, addScore, addXp, addCredits, completeLevel, setReplayLevel, unlockAchievement } = useGameStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
@@ -180,15 +180,41 @@ export default function PlayArea() {
       }
     };
 
-    // Entities
-    let cubes: any[] = [];
+    // ── OBJECT POOLING ──────────────────────────────────────────────────────
+    const createPool = (factory: () => any, initialSize = 50) => {
+      const pool: any[] = [];
+      for (let i = 0; i < initialSize; i++) {
+        const obj = factory();
+        obj.active = false;
+        pool.push(obj);
+      }
+      return {
+        get: () => {
+          const obj = pool.find(o => !o.active) || factory();
+          if (!pool.includes(obj)) pool.push(obj);
+          obj.active = true;
+          return obj;
+        },
+        release: (obj: any) => { obj.active = false; },
+        allActive: () => pool.filter(o => o.active),
+        pool
+      };
+    };
+
+    const cubePool = createPool(() => ({ x: 0, y: 0, vx: 0, vy: 0, size: 0, color: '', isMine: false, isGold: false, destroyed: false, type: 'normal', rot: 0, vrot: 0, hp: 1, maxHp: 1, pulse: 0 }));
+    const particlePool = createPool(() => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, color: '', size: 0 }), 200);
+    const sparkPool = createPool(() => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, color: '', size: 0 }), 100);
+    const textPool = createPool(() => ({ x: 0, y: 0, text: '', color: '', size: 0, life: 0, vy: 0 }), 20);
+
+    // Entities (using pools where possible)
+    let cubes: any[] = []; // We'll still use arrays for logic but pull from pools
     let powerUps: any[] = [];
-    const particles: any[] = [];
+    let particles: any[] = [];
     let rockets: any[] = [];
-    let bossRockets: any[] = [];  // boss shoots at player
-    let hazardBeams: any[] = []; // GD-style horizontal lasers
-    const pixelSparks: any[] = []; // ambient pixel rain
-    const floatingTexts: any[] = [];
+    let bossRockets: any[] = [];
+    let hazardBeams: any[] = [];
+    let pixelSparks: any[] = [];
+    let floatingTexts: any[] = [];
     const flashes: any[] = [];
     let glitchFrames = 0;
     let randomShakeTimer = 0;
@@ -307,10 +333,11 @@ export default function PlayArea() {
       osc.stop(audioCtxRef.current.currentTime + duration);
     };
 
-    const spawnText = (text: string, x: number, y: number, color: string, size = 20) => {
-      floatingTexts.push({ text, x, y, life: 1, color, size, vy: -2 });
+    const spawnText = (text: string, x: number, y: number, color = '#fff', size = 20) => {
+      const t = textPool.get();
+      t.text = text; t.x = x; t.y = y; t.color = color; t.size = size; t.life = 1; t.vy = -2;
+      floatingTexts.push(t);
     };
-
     // Spawn pattern — rotates every few seconds within a level for variety
     let currentPattern = (() => {
       const patterns = ['bottom','left','right','diagonal_left','diagonal_right','zigzag','rain','bottom'];
@@ -592,11 +619,12 @@ export default function PlayArea() {
 
     const initSnailRace = () => {
       snailLaneCount = 3;
-      const trackLeft = W * 0.12;
-      const trackRight = W * 0.88;
-      const trackBottom = H * 0.84;
-      const startX = (trackLeft + trackRight) / 2;
-      const startY = trackBottom - 58;
+      // Full Screen Snail Mail: Removing letterboxing
+      const trackLeft = 0;
+      const trackRight = W;
+      const trackBottom = H;
+      const startX = W / 2;
+      const startY = H - 100;
       snailPlayer = {
         x: startX,
         y: startY,
@@ -715,15 +743,30 @@ export default function PlayArea() {
 
     const createParticles = (x: number, y: number, color: string, count = 20) => {
       for(let i=0; i<count; i++) {
-        particles.push({ x, y, vx: (Math.random()-0.5)*30, vy: (Math.random()-0.5)*30, life: 1, color, size: Math.random()*4+1 });
+        const p = particlePool.get();
+        p.x = x; p.y = y;
+        p.vx = (Math.random()-0.5)*30;
+        p.vy = (Math.random()-0.5)*30;
+        p.life = 1; p.color = color;
+        p.size = Math.random()*4+1;
+        particles.push(p);
       }
-      // Also spawn pixel sparks
       for(let i=0; i<8; i++) {
-        pixelSparks.push({ x, y, vx: (Math.random()-0.5)*80, vy: -Math.random()*60-20, life: 1, color, size: Math.random()*3+1 });
+        const s = sparkPool.get();
+        s.x = x; s.y = y;
+        s.vx = (Math.random()-0.5)*80;
+        s.vy = -Math.random()*60-20;
+        s.life = 1; s.color = color;
+        s.size = Math.random()*3+1;
+        pixelSparks.push(s);
       }
     };
 
-    const getSlowDuration = () => skill.overclock ? 1200 : skill.reflexes ? 800 : 400;
+    // Power balancing: Reducing Time Warp duration by 40%
+    const getSlowDuration = () => {
+      const base = skill.overclock ? 1200 : skill.reflexes ? 800 : 400;
+      return base * 0.6; 
+    };
     const getAutoDuration = () => skill.auto ? 800 : 400;
     const getMagnetDuration = () => skill.magnet2 ? 900 : 300;
 
@@ -1080,8 +1123,13 @@ export default function PlayArea() {
 
       if (levelType === 'static') {
         const remainingTargets = cubes.filter(cb => !cb.destroyed && !cb.isMine).length;
-        if (remainingTargets === 0) endLevel('GRID CLEARED', true);
+        if (remainingTargets === 0) {
+          unlockAchievement('Survivor');
+          endLevel('GRID CLEARED', true);
+        }
       } else if (targetsDestroyed >= targetsNeeded) {
+        if (levelType === 'gd') unlockAchievement('Speed Demon');
+        if (slowMo > 0) unlockAchievement('Time Bender');
         endLevel('PHASE COMPLETE', true);
       }
     };
@@ -1244,13 +1292,26 @@ export default function PlayArea() {
       }
       if (glitchFrames > 0) glitchFrames--;
       
-      // Random ambient shakes — intense and frequent
+      // Chaos Script (Ludilo Level) - Aggressive effects
+      const isChaosLevel = levelType === 'chaos_bonus' || sectorId === 99;
       randomShakeTimer -= deltaTime;
       if (randomShakeTimer <= 0) {
-        shake = Math.max(shake, 6 + Math.random() * 10);
-        glitchFrames = Math.max(glitchFrames, Math.floor(Math.random() * 6));
-        randomShakeTimer = 600 + Math.random() * 1400;
-        for(let i=0;i<12;i++) pixelSparks.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-0.5)*30,vy:(Math.random()-0.5)*30,life:0.8,color:`hsl(${Math.floor(tick*80)%360},100%,70%)`,size:Math.random()*4+1});
+        const intensity = isChaosLevel ? 25 : 6;
+        shake = Math.max(shake, intensity + Math.random() * intensity);
+        glitchFrames = Math.max(glitchFrames, Math.floor(Math.random() * (isChaosLevel ? 15 : 6)));
+        randomShakeTimer = (isChaosLevel ? 200 : 600) + Math.random() * 1000;
+        
+        const sparkCount = isChaosLevel ? 30 : 12;
+        for(let i=0;i<sparkCount;i++) {
+          const s = sparkPool.get();
+          s.x = Math.random()*W; s.y = Math.random()*H;
+          s.vx = (Math.random()-0.5)*(isChaosLevel ? 100 : 30); 
+          s.vy = (Math.random()-0.5)*(isChaosLevel ? 100 : 30);
+          s.life = 0.8; 
+          s.color = isChaosLevel ? `hsl(${Math.floor(tick*200)%360},100%,70%)` : `hsl(${Math.floor(tick*80)%360},100%,70%)`;
+          s.size = Math.random()*(isChaosLevel ? 6 : 4)+1;
+          pixelSparks.push(s);
+        }
       }
 
       ctx.save();
@@ -1394,7 +1455,9 @@ export default function PlayArea() {
               ctx.restore();
             });
 
-            gdPlayer.y += gdPlayer.vy * (deltaTime/16);
+            // Smooth Movement: MovePosition-like logic using fixed delta time
+            const moveStep = gdPlayer.vy * (deltaTime/16);
+            gdPlayer.y += moveStep;
             gdDistanceTravelled += gdSpd * (deltaTime/16);
 
             // ── Reset grounded every frame, then re-check all surfaces ──
@@ -1405,10 +1468,19 @@ export default function PlayArea() {
               gdPlayer.y = floorY - gdPlayer.size/2;
               gdPlayer.vy = 0; gdPlayer.grounded = true; gdPlayer.jumpsUsed = 0;
             }
-            // Ceiling
+            // Ceiling (Invisible Ceiling / Barrier logic)
             if (gdPlayer.gravFlipped && gdPlayer.y - gdPlayer.size/2 <= ceilY) {
               gdPlayer.y = ceilY + gdPlayer.size/2;
               gdPlayer.vy = 0; gdPlayer.grounded = true; gdPlayer.jumpsUsed = 0;
+            }
+            
+            // Invisible Ceiling above blue line (Laser Glitch Fix)
+            const invisibleCeilingY = ceilY + 50; // Just above the blue line
+            if (!gdPlayer.gravFlipped && gdPlayer.y - gdPlayer.size/2 <= invisibleCeilingY) {
+              gdPlayer.y = invisibleCeilingY + gdPlayer.size/2;
+              gdPlayer.vy = Math.max(0, gdPlayer.vy); // Block upward movement
+              // Visual feedback for hitting the ceiling
+              if (tick % 5 === 0) createParticles(gdPlayer.x, invisibleCeilingY, '#00f2ff', 5);
             }
             // Platforms — improved collision to prevent falling through
             if (!gdPlayer.gravFlipped && gdPlayer.vy >= 0) {
@@ -1443,6 +1515,13 @@ export default function PlayArea() {
           ctx.shadowColor = planet.color; ctx.shadowBlur = 10;
           ctx.beginPath(); ctx.moveTo(0, floorY); ctx.lineTo(W, floorY); ctx.stroke();
           ctx.beginPath(); ctx.moveTo(0, ceilY); ctx.lineTo(W, ceilY); ctx.stroke();
+          
+          // Draw Invisible Ceiling indicator (subtle)
+          ctx.strokeStyle = 'rgba(0, 242, 255, 0.1)';
+          ctx.setLineDash([5, 15]);
+          ctx.beginPath(); ctx.moveTo(0, ceilY + 50); ctx.lineTo(W, ceilY + 50); ctx.stroke();
+          ctx.setLineDash([]);
+          
           ctx.shadowBlur = 0;
           
           // Scroll + draw obstacles
@@ -2570,12 +2649,15 @@ export default function PlayArea() {
            }
         });
 
-        // Floating Texts
-        floatingTexts.forEach((t, i) => {
+        // Floating Texts (using pooled objects)
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+          const t = floatingTexts[i];
           t.y += t.vy * (deltaTime/16);
           t.life -= 0.02 * (deltaTime/16);
-          if (t.life <= 0) floatingTexts.splice(i, 1);
-          else {
+          if (t.life <= 0) {
+            textPool.release(t);
+            floatingTexts.splice(i, 1);
+          } else {
             ctx.globalAlpha = t.life;
             ctx.fillStyle = t.color;
             ctx.font = `${t.size}px Orbitron`;
@@ -2583,23 +2665,42 @@ export default function PlayArea() {
             ctx.fillText(t.text, t.x, t.y);
             ctx.globalAlpha = 1;
           }
-        });
+        }
 
-        // --- Minimalist Hitman HUD ---
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'left';
-        
-        ctx.font = '10px Rajdhani';
-        ctx.letterSpacing = '3px';
-        ctx.fillText('OPERATIONAL METRICS', 30, 40);
-        
-        ctx.font = '24px Rajdhani';
-        ctx.letterSpacing = '1px';
-        ctx.fillText(`SCORE: ${sessionScore.toString().padStart(6, '0')}`, 30, 70);
-        
-        ctx.font = '14px Rajdhani';
-        ctx.fillStyle = combo > 10 ? COLOR_MINE : '#888';
-        ctx.fillText(`CHAIN: x${combo}`, 30, 95);
+        // ── BENTO-GRID UI SYSTEM ─────────────────────────────────────────────
+        const drawBentoBox = (x: number, y: number, w: number, h: number, label: string, value: string, color = '#fff') => {
+          ctx.save();
+          // Glassmorphism background
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(x, y, w, h, 4);
+          ctx.fill();
+          ctx.stroke();
+          
+          // Subtle blur effect (simulated with a slight glow)
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = 10;
+          
+          // Label
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.font = '9px Rajdhani';
+          ctx.letterSpacing = '2px';
+          ctx.textAlign = 'left';
+          ctx.fillText(label.toUpperCase(), x + 12, y + 18);
+          
+          // Value
+          ctx.fillStyle = color;
+          ctx.font = '18px Orbitron';
+          ctx.letterSpacing = '1px';
+          ctx.fillText(value, x + 12, y + 42);
+          ctx.restore();
+        };
+
+        // Left Bento Column (Metrics)
+        drawBentoBox(30, 30, 180, 60, 'Operational Score', sessionScore.toString().padStart(6, '0'));
+        drawBentoBox(30, 100, 120, 50, 'Chain Multiplier', `x${combo}`, combo > 10 ? COLOR_MINE : '#fff');
         
         // ── PERMANENT COMBO DISPLAY (top center, always visible) ──
         if (combo > 0) {
@@ -2655,27 +2756,15 @@ export default function PlayArea() {
         ctx.textAlign = 'left';
         ctx.fillText(`OVERLOAD ${feverTimer > 0 ? 'ACTIVE' : Math.floor(feverCharge) + '%' } · HP ${levelLives}`, 30, H - 34);
 
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#fff';
-        
-        ctx.font = '10px Rajdhani';
-        ctx.letterSpacing = '3px';
-        ctx.fillText('TARGET SECTOR', W - 30, 40);
-        
-        ctx.font = '20px Orbitron';
-        ctx.letterSpacing = '2px';
-        ctx.fillText(`${planet.name} | L${currentLevel.toString().padStart(2, '0')}`, W - 30, 70);
-        
-        ctx.font = '14px Rajdhani';
-        ctx.letterSpacing = '1px';
-        ctx.fillStyle = '#888';
-        if (levelType === 'boss') ctx.fillText(`TARGET: ${bossProfile.name}`, W - 30, 95);
-        else if (levelType === 'static') ctx.fillText(`TIME: ${Math.max(0, timeRemaining).toFixed(1)}s`, W - 30, 95);
-        else if (levelType === 'chaos_bonus') ctx.fillText(`CHAOS: ${Math.max(0,timeRemaining).toFixed(1)}s | ${targetsDestroyed}/${targetsNeeded}`, W - 30, 95);
-        else if (levelType === 'gd') ctx.fillText(`GD RUN: ${targetsDestroyed}/${targetsNeeded} cubes`, W - 30, 95);
-        else if (levelType === 'snail') ctx.fillText(`CUBE SHOOTER: ${targetsDestroyed}/${targetsNeeded} cubes`, W - 30, 95);
-        else if (levelType === 'chess') ctx.fillText(`NEURAL CHESS: CAPTURE ENEMY CORE`, W - 30, 95);
-        else ctx.fillText(`TARGETS: ${targetsDestroyed} / ${targetsNeeded}`, W - 30, 95);
+        // Right Bento Column (Mission Status)
+        const missionLabel = levelType === 'boss' ? 'Target' : levelType === 'static' ? 'Time Remaining' : 'Mission Progress';
+        let missionValue = `${targetsDestroyed} / ${targetsNeeded}`;
+        if (levelType === 'boss') missionValue = bossProfile.name;
+        else if (levelType === 'static') missionValue = `${Math.max(0, timeRemaining).toFixed(1)}s`;
+        else if (levelType === 'chess') missionValue = 'CAPTURE CORE';
+
+        drawBentoBox(W - 210, 30, 180, 60, 'Target Sector', `${planet.name} L${currentLevel}`, planet.color);
+        drawBentoBox(W - 210, 100, 180, 50, missionLabel, missionValue);
       }
 
       ctx.restore();
@@ -2750,6 +2839,24 @@ export default function PlayArea() {
         // 3. Main Cursor Body & Core FX
         const cx = mouse.x, cy = mouse.y;
         
+        // ── POWER PROGRESS BAR (Visual Feedback) ─────────────────────────────
+        const activePowerTime = Math.max(slowMo, autoSlicer, magnetActive, feverTimer);
+        if (activePowerTime > 0) {
+          const maxTime = 600; // Approximate max duration for scaling
+          const progress = Math.min(1, activePowerTime / maxTime);
+          const barW = 40;
+          const barH = 4;
+          
+          ctx.save();
+          // Background
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          ctx.fillRect(cx - barW/2, cy + 25, barW, barH);
+          // Progress
+          ctx.fillStyle = slowMo > 0 ? '#00f2ff' : autoSlicer > 0 ? '#00ff88' : magnetActive > 0 ? '#ff88ff' : '#ffd700';
+          ctx.fillRect(cx - barW/2, cy + 25, barW * progress, barH);
+          ctx.restore();
+        }
+
         // --- UNIVERSAL CORE ---
         // Every cursor gets a bright white center so it's NEVER lost
         ctx.fillStyle = '#ffffff';
@@ -3103,12 +3210,12 @@ export default function PlayArea() {
     <div className="fixed inset-0 overflow-hidden bg-[#050505] touch-none cursor-crosshair">
       {/* Animated sector background */}
       <LevelBackground sectorId={sectorIdForBg} levelInSector={levelInSectorForBg} />
-      <canvas ref={canvasRef} className="absolute inset-0 z-10" />
+      <canvas ref={canvasRef} className="absolute inset-0 z-[500]" />
       
       {/* Return Button */}
       <button 
         onClick={() => router.push("/hub")}
-        className="absolute top-6 left-1/2 -translate-x-1/2 z-20 font-mono text-[10px] uppercase tracking-[0.3em] text-gray-500 hover:text-white transition-colors"
+        className="absolute top-6 left-1/2 -translate-x-1/2 z-[999] font-mono text-[10px] uppercase tracking-[0.3em] text-gray-500 hover:text-white transition-colors"
       >
         [ ABORT MISSION ]
       </button>

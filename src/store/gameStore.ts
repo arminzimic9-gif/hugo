@@ -11,6 +11,7 @@ export interface PlayerStats {
   completedLevels: number[]; // all individually completed level numbers
   ownedCursors: number[];
   activeCursorId: number;
+  achievements: string[]; // List of unlocked achievement IDs
 }
 
 // Sector structure: each sector has 11 levels (10 regular + 1 boss at level 11)
@@ -70,6 +71,7 @@ export interface GameState {
   // Customization
   buyCursor: (cursorId: number, cost: number) => boolean;
   setActiveCursor: (cursorId: number) => void;
+  unlockAchievement: (achievementId: string) => void;
 }
 
 const XP_PER_LEVEL = 1000;
@@ -88,6 +90,7 @@ export const useGameStore = create<GameState>()(
         completedLevels: [],
         ownedCursors: [1], // Neon Pulse by default
         activeCursorId: 1,
+        achievements: [],
       },
       currentCampaignLevel: 1,
       currentSector: 1,
@@ -195,6 +198,15 @@ export const useGameStore = create<GameState>()(
       setActiveCursor: (cursorId) => set((state) => ({
         stats: { ...state.stats, activeCursorId: cursorId }
       })),
+      unlockAchievement: (achievementId) => set((state) => {
+        if (state.stats.achievements?.includes(achievementId)) return state;
+        return {
+          stats: {
+            ...state.stats,
+            achievements: [...(state.stats.achievements || []), achievementId]
+          }
+        };
+      }),
     }),
     {
       name: 'hugo-neural-storage',
