@@ -11,6 +11,13 @@ export interface PlayerStats {
   completedLevels: number[]; // all individually completed level numbers
   ownedCursors: number[];
   activeCursorId: number;
+  achievements: string[];
+}
+
+export interface HeroProfile {
+  codename: string;
+  archetype: "vanguard" | "spectre" | "vector";
+  accent: string;
 }
 
 // Sector structure: each sector has 11 levels (10 regular + 1 boss at level 11)
@@ -28,6 +35,7 @@ export function getLevelInSector(level: number): number {
 export function getLevelType(level: number): 'ninja' | 'static' | 'bonus' | 'boss' | 'gd' | 'chess' | 'snail' | 'chaos_bonus' {
   const sector = getSectorForLevel(level);
   if (sector === 99) return getLevelInSector(level) % 2 === 0 ? 'snail' : 'gd';
+  if (sector === 100) return 'boss';
   const inSector = getLevelInSector(level);
   if (inSector === 11) return 'boss';
   if (inSector === 1 && sector > 1) return 'chaos_bonus';
@@ -42,6 +50,7 @@ export interface GameState {
   // Player Data
   username: string | null;
   stats: PlayerStats;
+  hero: HeroProfile;
   
   // Persistent campaign progress
   currentCampaignLevel: number; // Global level 1-55+
@@ -58,8 +67,10 @@ export interface GameState {
   addXp: (amount: number) => void;
   addCredits: (amount: number) => void;
   unlockSkill: (skillId: string, cost: number) => boolean;
+  unlockAchievement: (achievementId: string) => boolean;
   completeLevel: (levelCompleted: number) => void;
   setReplayLevel: (level: number) => void;
+  setHeroProfile: (hero: HeroProfile) => void;
   
   // Session Actions
   setSector: (sectorId: number) => void;
@@ -88,6 +99,12 @@ export const useGameStore = create<GameState>()(
         completedLevels: [],
         ownedCursors: [1], // Neon Pulse by default
         activeCursorId: 1,
+        achievements: [],
+      },
+      hero: {
+        codename: "NEON",
+        archetype: "vanguard",
+        accent: "#00f2ff",
       },
       currentCampaignLevel: 1,
       currentSector: 1,
@@ -163,6 +180,21 @@ export const useGameStore = create<GameState>()(
         }
         return false;
       },
+
+      unlockAchievement: (achievementId) => {
+        const state = get();
+        const owned = state.stats.achievements ?? [];
+        if (owned.includes(achievementId)) return false;
+        set((s) => ({
+          stats: {
+            ...s.stats,
+            achievements: [...(s.stats.achievements ?? []), achievementId]
+          }
+        }));
+        return true;
+      },
+
+      setHeroProfile: (hero) => set({ hero }),
       
       setSector: (sectorId) => set((state) => {
         // When selecting a sector from hub, jump to its first level
@@ -201,6 +233,7 @@ export const useGameStore = create<GameState>()(
       partialize: (state) => ({ 
         username: state.username, 
         stats: state.stats,
+        hero: state.hero,
         currentCampaignLevel: state.currentCampaignLevel,
         currentSector: state.currentSector,
       }),

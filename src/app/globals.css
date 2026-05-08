@@ -132,3 +132,12 @@ body.game-active {
   scrollbar-width: thin;
   scrollbar-color: var(--hitman-red) transparent;
 }
+
+.lightning-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: transparent;
+}

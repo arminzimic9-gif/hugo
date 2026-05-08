@@ -3,19 +3,33 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { useGameStore } from "@/store/gameStore";
+import { LEVELS_PER_SECTOR, useGameStore } from "@/store/gameStore";
+import { getLevelIntel, OPERATIVE_LEVEL_NAME } from "@/data/progression";
+import { ACHIEVEMENTS } from "@/data/achievements";
 
-const SECTORS = [
+const TESTING_BOSS_SECTOR_ID = 100;
+const TESTING_BOSS_LEVEL = (TESTING_BOSS_SECTOR_ID - 1) * LEVELS_PER_SECTOR + 1;
+
+type SectorCard = {
+  id: number;
+  name: string;
+  color: string;
+  levels: string;
+  isTesting?: boolean;
+};
+
+const SECTORS: SectorCard[] = [
   { id: 1, name: "CYBERIA", color: "#00f2ff", levels: "1 - 11" },
   { id: 2, name: "MAGMA PRIME", color: "#ff1a24", levels: "12 - 22" },
   { id: 3, name: "VOID NEXUS", color: "#bc13fe", levels: "23 - 33" },
   { id: 4, name: "QUANTUM CORE", color: "#00ff88", levels: "34 - 44" },
   { id: 5, name: "OMEGA STATION", color: "#ffffff", levels: "45 - 55" },
-  { id: 99, name: "LUDILO (BONUS)", color: "#ff00a2", levels: "BONUS STAGES" }
+  { id: 99, name: "LUDILO (BONUS)", color: "#ff00a2", levels: "BONUS STAGES" },
+  { id: TESTING_BOSS_SECTOR_ID, name: "TESTING BOSS", color: "#ef4444", levels: "BOSS SIM", isTesting: true },
 ];
 
 export default function NeuralHub() {
-  const { username, stats, logout, setSector } = useGameStore();
+  const { username, stats, hero, logout, setSector, setReplayLevel } = useGameStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [hoveredSector, setHoveredSector] = useState<number | null>(null);
@@ -36,9 +50,14 @@ export default function NeuralHub() {
   };
 
   const activeSector = getActiveSector();
-  const unlockedSectors = [...(stats.unlockedSectors ?? [1]), 99]; // 99 is always unlocked
+  const unlockedSectors = [...(stats.unlockedSectors ?? [1]), 99, TESTING_BOSS_SECTOR_ID];
   const campaignMaxLevel = Math.min(stats.maxLevelReached ?? 1, 5 * 11);
   const isHoveredLocked = hoveredSector ? !unlockedSectors.includes(hoveredSector) : false;
+  const unlockedAchievements = stats.achievements ?? [];
+  const introLevels = [1, 2, 3, 4, 5].map((level) => ({
+    level,
+    intel: getLevelIntel(level, level),
+  }));
 
   return (
     <div className="flex-1 flex flex-col p-5 md:p-8 max-w-[1400px] mx-auto w-full min-h-screen bg-[#050505] text-white overflow-y-auto app-scroll relative">
@@ -67,6 +86,17 @@ export default function NeuralHub() {
           
           {/* Profile Stats */}
           <div className="flex flex-col gap-4">
+            <div className="border border-gray-800 bg-[#090909] px-3 py-3">
+              <div className="font-mono text-[9px] tracking-[0.3em] uppercase text-gray-500 mb-2">Operative Profile</div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-display text-sm tracking-[0.2em] uppercase text-white">{hero.codename}</div>
+                  <div className="font-mono text-[10px] tracking-[0.2em] uppercase text-gray-500">{hero.archetype}</div>
+                </div>
+                <div className="w-10 h-10 border" style={{ borderColor: hero.accent, boxShadow: `0 0 20px ${hero.accent}44` }} />
+              </div>
+            </div>
+
             <div className="flex justify-between items-baseline border-b border-gray-800 pb-2">
               <span className="font-mono text-xs tracking-[0.2em] uppercase text-gray-500">Operative Level</span>
               <span className="font-display text-xl">{stats.level}</span>
@@ -107,6 +137,58 @@ export default function NeuralHub() {
             </button>
           </div>
 
+          <div className="border border-gray-800 bg-[#080808] p-4">
+            <div className="font-display text-xs tracking-[0.3em] uppercase text-white mb-3">Level Progression</div>
+            <div className="space-y-2">
+              {introLevels.map(({ level, intel }) => (
+                <div key={level} className="border border-gray-900 px-3 py-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="font-mono text-[10px] tracking-[0.2em] uppercase text-white">
+                      L{level} - {intel.title}
+                    </div>
+                    <div className="font-mono text-[9px] text-gray-500 uppercase">
+                      {campaignMaxLevel >= level ? "Learned" : "Locked"}
+                    </div>
+                  </div>
+                  <div className="font-mono text-[10px] text-gray-500">{intel.subtitle}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 border-t border-gray-900 pt-3">
+              <div className="font-mono text-[10px] tracking-[0.2em] uppercase text-white">{OPERATIVE_LEVEL_NAME}</div>
+              <div className="font-mono text-[10px] text-gray-500 mt-1">
+                Mission UI, objectives i checkpoint flow ulaze od Level 5.
+              </div>
+            </div>
+          </div>
+
+          <div className="border border-gray-800 bg-[#080808] p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-display text-xs tracking-[0.3em] uppercase text-white">Achievements</div>
+              <div className="font-mono text-[10px] text-gray-400 uppercase">
+                {unlockedAchievements.length}/{ACHIEVEMENTS.length}
+              </div>
+            </div>
+            <div className="space-y-1.5 max-h-44 overflow-y-auto app-scroll pr-1">
+              {ACHIEVEMENTS.map((achievement) => {
+                const unlocked = unlockedAchievements.includes(achievement.id);
+                return (
+                  <div
+                    key={achievement.id}
+                    className={`flex items-center justify-between border px-2 py-1.5 ${
+                      unlocked ? "border-green-500/30 bg-green-500/10" : "border-gray-900 bg-black/40"
+                    }`}
+                  >
+                    <div className="font-mono text-[10px] tracking-[0.15em] uppercase text-white">{achievement.name}</div>
+                    <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-gray-500">
+                      {unlocked ? "Unlocked" : "Locked"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Mission Select */}
           <div className="flex flex-col gap-2">
             <div className="font-display text-sm tracking-[0.3em] uppercase mb-4 border-l-2 border-red-500 pl-3">
@@ -128,11 +210,16 @@ export default function NeuralHub() {
                 >
                   <div 
                     className={`flex justify-between items-center p-4 ${!isLocked ? 'cursor-pointer' : ''}`}
-                    onClick={() => !isLocked && (setSector(sector.id), router.push("/play"))}
+                    onClick={() => {
+                      if (isLocked) return;
+                      setSector(sector.id);
+                      if (sector.isTesting) setReplayLevel(TESTING_BOSS_LEVEL);
+                      router.push("/play");
+                    }}
                   >
                     <div>
                       <div className="font-mono text-[10px] tracking-widest text-gray-500 uppercase mb-1">
-                        Sector {sector.id} (LVL {sector.levels})
+                        {sector.isTesting ? "Simulation Arena" : `Sector ${sector.id}`} (LVL {sector.levels})
                       </div>
                       <div className={`font-display tracking-[0.2em] uppercase text-sm ${isLocked ? 'text-gray-600' : 'text-white'}`} style={{ color: !isLocked ? sector.color : '' }}>
                         {sector.name}
@@ -150,11 +237,11 @@ export default function NeuralHub() {
                   {/* Replay Grid for unlocked sectors */}
                   {!isLocked && (
                     <div className="px-4 pb-4 grid grid-cols-6 gap-1 border-t border-gray-800 pt-3 mt-1 bg-[#050505]">
-                      {Array.from({length: 11}, (_, i) => {
-                        const lvl = (sector.id - 1) * 11 + i + 1;
-                        const levelLabel = sector.id === 99 ? `B${i + 1}` : `L${lvl}`;
+                      {Array.from({length: sector.isTesting ? 1 : LEVELS_PER_SECTOR}, (_, i) => {
+                        const lvl = sector.isTesting ? TESTING_BOSS_LEVEL : (sector.id - 1) * LEVELS_PER_SECTOR + i + 1;
+                        const levelLabel = sector.isTesting ? "T1" : sector.id === 99 ? `B${i + 1}` : `L${lvl}`;
                         const isLvlCleared = (stats.completedLevels ?? []).includes(lvl);
-                        const isReachable = sector.id === 99 || lvl <= campaignMaxLevel || isLvlCleared;
+                        const isReachable = sector.isTesting || sector.id === 99 || lvl <= campaignMaxLevel || isLvlCleared;
                         return (
                           <button
                             key={lvl}
@@ -171,7 +258,7 @@ export default function NeuralHub() {
                               isReachable ? 'border-gray-600 text-white hover:bg-gray-800' :
                               'border-gray-900 text-gray-700 cursor-not-allowed'
                             }`}
-                            title={sector.id === 99 ? `Bonus ${i + 1}` : `Level ${lvl}`}
+                            title={sector.isTesting ? "Testing Boss" : sector.id === 99 ? `Bonus ${i + 1}` : `Level ${lvl}`}
                           >
                             {levelLabel}
                           </button>

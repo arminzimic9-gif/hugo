@@ -1,0 +1,9 @@
+.lightning-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  pointer-events: none;
+  background: transparent;
+  display: block;
+  contain: layout paint size style;
+}

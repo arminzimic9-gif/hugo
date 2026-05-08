@@ -4,8 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/store/gameStore";
 import { LEVELS_PER_SECTOR } from "@/store/gameStore";
-import LevelBackground from "@/components/LevelBackground";
 import { CURSORS } from "@/data/cursors";
+import { ACHIEVEMENT_BY_ID } from "@/data/achievements";
+import { getLevelIntel } from "@/data/progression";
+
+const TESTING_BOSS_SECTOR_ID = 100;
+const TESTING_BOSS_LEVEL = (TESTING_BOSS_SECTOR_ID - 1) * LEVELS_PER_SECTOR + 1;
 
 const PLANETS = [
   { id: 1, name: "CYBERIA",      color: "#00f2ff" },
@@ -22,18 +26,105 @@ const BOSS_PROFILES: Record<number, { name: string; color: string; accent: strin
   4: { name: "QUANTUM MIRROR", color: "#00ff88", accent: "#bfffee", pattern: "split" },
   5: { name: "OMEGA FIREWALL", color: "#ffffff", accent: "#ff003c", pattern: "omega" },
   99: { name: "LUDILO CORE", color: "#ff00a2", accent: "#ffffff", pattern: "chaos" },
+  100: { name: "EVIL EYE OVERSEER", color: "#ef4444", accent: "#ffb26b", pattern: "chaos" },
+};
+
+type HudSnapshot = {
+  score: number;
+  combo: number;
+  lives: number;
+  levelLabel: string;
+  modeLabel: string;
+  targetLabel: string;
+  progress: number;
+  powerLabel: string;
+  powerProgress: number;
+  sectionLabel: string;
+  modifierLabel: string;
+  modifierProgress: number;
+  checkpointLabel: string;
+  bestRankLabel: string;
+  objectives: string[];
+  bossPhase: number;
+  bossHealth: number;
+  bossName: string;
+  bossColor: string;
+  eyeX: number;
+  eyeY: number;
+  eyeScale: number;
+  eyeActive: boolean;
+  lightningActive: boolean;
+  lightningHue: number;
+  lightningIntensity: number;
+  lightningSpeed: number;
+  lightningSize: number;
+  lightningXOffset: number;
+  isTestingBoss: boolean;
+};
+
+const EMPTY_HUD: HudSnapshot = {
+  score: 0,
+  combo: 0,
+  lives: 1,
+  levelLabel: "L01",
+  modeLabel: "TACTICAL",
+  targetLabel: "0 / 0",
+  progress: 0,
+  powerLabel: "READY",
+  powerProgress: 0,
+  sectionLabel: "INTRO GRID",
+  modifierLabel: "NONE",
+  modifierProgress: 0,
+  checkpointLabel: "OFF",
+  bestRankLabel: "-",
+  objectives: [],
+  bossPhase: 1,
+  bossHealth: 100,
+  bossName: "",
+  bossColor: "#ef4444",
+  eyeX: 0,
+  eyeY: 0,
+  eyeScale: 1,
+  eyeActive: false,
+  lightningActive: false,
+  lightningHue: 230,
+  lightningIntensity: 1,
+  lightningSpeed: 1,
+  lightningSize: 1,
+  lightningXOffset: 0,
+  isTestingBoss: false,
+};
+
+type RankTier = "S" | "A" | "B" | "C";
+type GdModifierType = "none" | "laserstorm";
+
+const GD_SECTION_LABELS = ["INTRO GRID", "SPEED BURST", "PRECISION ZONE", "CHAOS FINALE"] as const;
+const RANK_STORAGE_KEY = "hugo-level-ranks-v1";
+const RANK_SCORE: Record<RankTier, number> = { C: 1, B: 2, A: 3, S: 4 };
+
+const POWER_COOLDOWN_FRAMES: Record<string, number> = {
+  slow: 380,
+  freeze: 420,
+  quake: 280,
+  whiteout: 320,
+  void: 260,
+  giant: 360,
 };
 
 export default function PlayArea() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { username, currentCampaignLevel, stats, addScore, addXp, addCredits, completeLevel, setReplayLevel } = useGameStore();
+  const { username, currentCampaignLevel, stats, addScore, addXp, addCredits, completeLevel, setReplayLevel, unlockAchievement } = useGameStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [gameResult, setGameResult] = useState<{status: string, score: number, title: string, levelStr: string} | null>(null);
   const [currentLevel, setCurrentLevel] = useState(() => currentCampaignLevel ?? 1);
   const [restartKey, setRestartKey] = useState(0);
   const [levelClearBanner, setLevelClearBanner] = useState<string | null>(null);
+  const [hud, setHud] = useState<HudSnapshot>(EMPTY_HUD);
+  const [achievementToast, setAchievementToast] = useState<{ name: string; description: string } | null>(null);
+  const [bossIntro, setBossIntro] = useState<string | null>(null);
   // Level select modal (shown after sector boss is beaten)
   const [showLevelSelect, setShowLevelSelect] = useState(false);
   const [levelSelectSector, setLevelSelectSector] = useState(1);
@@ -61,18 +152,23 @@ export default function PlayArea() {
     let spawnTimeoutId: NodeJS.Timeout;
     let lastTime = 0;
     let lastFrameTime = 0;
+    let lastHudCommit = 0;
     const frameInterval = 1000 / 60;
+    const ULTRA_SMOOTH_MODE = true;
     
     // Derive sector from current level (11 levels per sector: 10 regular + 1 boss)
-    const LEVELS_PER_SECTOR = 11;
     const sectorId = Math.ceil(currentLevel / LEVELS_PER_SECTOR);
+    const isTestingBossSector = sectorId === TESTING_BOSS_SECTOR_ID;
     const planet = sectorId === 99
       ? { id: 99, name: "LUDILO", color: "#ff00a2" }
+      : isTestingBossSector
+      ? { id: TESTING_BOSS_SECTOR_ID, name: "BOSS TEST", color: "#ef4444" }
       : PLANETS[(sectorId - 1) % PLANETS.length] || PLANETS[0];
     const bossProfile = BOSS_PROFILES[sectorId] ?? BOSS_PROFILES[1];
     
     // Game State
     let active = true;
+    let paused = false;
     let tick = 0;
     let shake = 0;
     let sessionScore = 0;
@@ -80,7 +176,13 @@ export default function PlayArea() {
     let targetsDestroyed = 0;
     let targetsNeeded = 10;
     let timeRemaining = 0;
+    let levelElapsed = 0;
     let combo = 0;
+    let levelTookDamage = false;
+    let usedTimeMechanic = false;
+    let firstJumpTriggered = false;
+    let laserContactCount = 0;
+    let operativeCheckpoint = 0;
     
     let slowMo = 0;
     let autoSlicer = 0;
@@ -88,6 +190,7 @@ export default function PlayArea() {
     let rocketRain = 0;
     let magnetActive = 0;
     let shieldActive = false;
+    let giantModeTimer = 0;
     const spellCooldowns: Record<string,number> = { q:0, e:0, r:0, f:0 };
     const SPELL_MAX: Record<string,number> = { q:300, e:250, r:500, f:60 };
     let chaosFrenzyTimer = 0;
@@ -98,6 +201,22 @@ export default function PlayArea() {
     let gdJumpQueued = false;
     let gdDistanceTravelled = 0;
     let gdRocketTimer = 0;
+    let operativeTrackGoal = 9000;
+    let gdSectionIndex = 0;
+    let gdSectionBanner = "";
+    let gdPracticeMode = true;
+    let gdCheckpointReady = true;
+    let gdInvulnTimer = 0;
+    let gdModifierType: GdModifierType = "none";
+    let gdModifierTimer = 0;
+    let gdModifierCooldown = 180;
+    let gdMiniBossTriggered = false;
+    let gdMiniBossActive = false;
+    let gdMiniBossTimer = 0;
+    let gdMiniBossFireTimer = 0;
+    let gdMiniBossDroneY = 0;
+    let gdBestRank: RankTier | null = null;
+    let gdCoreGoalReached = false;
 
     // Cube shooter state, used by the former Snail Mail levels.
     let snailPlayer = { x: 0, y: 0, targetX: 0, targetY: 0, lane: 1, targetLane: 1, speed: 0, shield: 0, boost: 0, shootCooldown: 0, dead: false };
@@ -203,8 +322,28 @@ export default function PlayArea() {
     let bossX = 0;
     let bossY = -200;
     let bossHealth = 100;
+    let bossMaxHealth = 100;
+    const eyeCore = {
+      x: W * 0.5,
+      y: H * 0.24,
+      tx: W * 0.5,
+      ty: H * 0.24,
+      radius: 86,
+      active: false,
+      pulse: 0,
+      burst: 0,
+      reveal: 0,
+    };
+    let lightningTimer = 0;
+    let lightningHue = 230;
+    let lightningXOffset = 0;
+    let lightningSpeed = 1.2;
+    let lightningIntensity = 1.1;
+    let lightningSize = 1;
+    let atomicSequenceTimer = 0;
     // levelInSector accessible to all closures (startLevel, endLevel, draw)
     let levelInSector = ((currentLevel - 1) % LEVELS_PER_SECTOR) + 1;
+    let isTestingBossLevel = isTestingBossSector;
 
     const hasSkill = (id: string) => stats.skills.includes(id);
     const skill = {
@@ -272,6 +411,53 @@ export default function PlayArea() {
     let frenzyTimer = 0;
     let phaseRushTimer = 0;
     let phaseRushStacks = 0;
+    let powerCooldowns: Record<string, number> = {};
+
+    const capArray = (arr: any[], max: number) => {
+      if (arr.length > max) arr.splice(0, arr.length - max);
+    };
+
+    const getSnailBounds = () => ({
+      left: 24,
+      right: W - 24,
+      top: 92,
+      bottom: H - 98,
+    });
+
+    const awardAchievement = (id: string) => {
+      const unlockedNow = unlockAchievement(id);
+      if (!unlockedNow) return;
+      const meta = ACHIEVEMENT_BY_ID[id];
+      if (!meta) return;
+      setAchievementToast({ name: meta.name, description: meta.description });
+      setTimeout(() => {
+        setAchievementToast((prev) => (prev?.name === meta.name ? null : prev));
+      }, 2800);
+    };
+
+    const getStoredRank = (level: number): RankTier | null => {
+      try {
+        const raw = window.localStorage.getItem(RANK_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as Record<string, RankTier>;
+        const rank = parsed[String(level)];
+        if (rank === "S" || rank === "A" || rank === "B" || rank === "C") return rank;
+      } catch {}
+      return null;
+    };
+
+    const saveStoredRank = (level: number, rank: RankTier): RankTier => {
+      const key = String(level);
+      const existing = getStoredRank(level);
+      if (existing && RANK_SCORE[existing] >= RANK_SCORE[rank]) return existing;
+      try {
+        const raw = window.localStorage.getItem(RANK_STORAGE_KEY);
+        const parsed = raw ? (JSON.parse(raw) as Record<string, RankTier>) : {};
+        parsed[key] = rank;
+        window.localStorage.setItem(RANK_STORAGE_KEY, JSON.stringify(parsed));
+      } catch {}
+      return rank;
+    };
 
     const initAudio = () => {
       if (!audioCtxRef.current) {
@@ -309,6 +495,101 @@ export default function PlayArea() {
 
     const spawnText = (text: string, x: number, y: number, color: string, size = 20) => {
       floatingTexts.push({ text, x, y, life: 1, color, size, vy: -2 });
+    };
+
+    const triggerLightning = (opts: { duration?: number; hue?: number; speed?: number; intensity?: number; size?: number } = {}) => {
+      lightningTimer = Math.max(lightningTimer, opts.duration ?? 72);
+      lightningHue = opts.hue ?? lightningHue;
+      lightningSpeed = opts.speed ?? lightningSpeed;
+      lightningIntensity = opts.intensity ?? lightningIntensity;
+      lightningSize = opts.size ?? lightningSize;
+      awardAchievement("storm_rider");
+    };
+
+    const triggerEyeBurst = (amount = 1.2, withLightning = true) => {
+      eyeCore.active = true;
+      eyeCore.burst = Math.max(eyeCore.burst, amount);
+      eyeCore.pulse = Math.max(eyeCore.pulse, amount * 0.6);
+      shake = Math.max(shake, 26);
+      glitchFrames = Math.max(glitchFrames, 10);
+      createParticles(eyeCore.x, eyeCore.y, "#ff4d4d", 54);
+      if (withLightning) triggerLightning({ duration: 94, hue: 350, speed: 1.45, intensity: 1.2, size: 0.95 });
+      awardAchievement("eye_breaker");
+    };
+
+    const getTrackProgress = () => Math.min(1, gdDistanceTravelled / Math.max(1, operativeTrackGoal));
+    const getGdSection = () => Math.max(0, Math.min(3, Math.floor(getTrackProgress() * 4)));
+
+    const clearGdModifier = () => {
+      gdModifierType = "none";
+      gdModifierTimer = 0;
+      gdModifierCooldown = 220;
+    };
+
+    const triggerGdModifier = (forced?: GdModifierType) => {
+      const options: GdModifierType[] = ["laserstorm"];
+      const picked = forced ?? options[Math.floor(Math.random() * options.length)];
+      gdModifierType = picked;
+      gdModifierTimer = picked === "laserstorm" ? 200 : 230;
+      gdModifierCooldown = 360;
+      const label =
+        "MOD: LASER STORM";
+      spawnText(label, W / 2, 146, "#ffcc66", 20);
+      flashes.push({ life: 0.45, color: "#223a66", intensity: 0.35 });
+    };
+
+    const updateGdSectionState = () => {
+      const section = getGdSection();
+      if (section === gdSectionIndex && gdSectionBanner) return;
+      if (section !== gdSectionIndex || !gdSectionBanner) {
+        gdSectionIndex = section;
+        gdSectionBanner = GD_SECTION_LABELS[section];
+        gdCheckpointReady = true;
+        gdInvulnTimer = Math.max(gdInvulnTimer, 18);
+        spawnText(`SECTION ${section + 1}: ${gdSectionBanner}`, W / 2, 112, "#9ed3ff", 24);
+        if (section > 0 && Math.random() < 0.72) triggerGdModifier();
+      }
+    };
+
+    const tryGdPracticeRespawn = (reason: string, x: number, y: number, color: string) => {
+      if (!(levelType === "gd" || levelType === "operative")) return false;
+      if (!gdPracticeMode || !gdCheckpointReady) return false;
+      gdCheckpointReady = false;
+      levelTookDamage = true;
+      combo = 0;
+      gdPlayer.dead = false;
+      gdPlayer.vy = 0;
+      gdPlayer.y = Math.max(H * 0.2, Math.min(H * 0.7, y));
+      gdPlayer.gravFlipped = false;
+      gdInvulnTimer = 90;
+      gdJumpQueued = false;
+      if (levelType === "operative") timeRemaining = Math.max(0, timeRemaining - 4);
+      gdObstacles = gdObstacles.filter(ob => ob.type === "finish" || ob.type === "platform" || ob.x > gdPlayer.x - 80);
+      createParticles(x, y, color, 38);
+      shake = Math.max(shake, 25);
+      glitchFrames = Math.max(glitchFrames, 14);
+      spawnText(`PRACTICE RETRY · ${reason}`, W / 2, H / 2 - 18, "#ffcc66", 24);
+      return true;
+    };
+
+    const computeLevelRank = (): RankTier => {
+      const completion = Math.min(1, targetsDestroyed / Math.max(1, targetsNeeded));
+      const expectedTime =
+        levelType === "operative" ? 60 :
+        levelType === "gd" ? 52 :
+        levelType === "snail" ? 58 :
+        levelType === "boss" ? 75 :
+        42;
+      const elapsedScore = Math.max(0, 1 - Math.max(0, levelElapsed - expectedTime) / Math.max(10, expectedTime));
+      let points = completion * 58 + elapsedScore * 24;
+      if (!levelTookDamage) points += 14;
+      if (combo >= 20) points += 4;
+      if (laserContactCount === 0 && (levelType === "gd" || levelType === "operative")) points += 5;
+
+      if (points >= 90) return "S";
+      if (points >= 74) return "A";
+      if (points >= 58) return "B";
+      return "C";
     };
 
     // Spawn pattern — rotates every few seconds within a level for variety
@@ -393,9 +674,17 @@ export default function PlayArea() {
 
     const startLevel = () => {
       active = true;
+      paused = false;
+      setIsPaused(false);
       setIsGameOver(false);
+      setBossIntro(null);
       targetsDestroyed = 0;
       combo = 0;
+      levelElapsed = 0;
+      levelTookDamage = false;
+      usedTimeMechanic = false;
+      laserContactCount = 0;
+      operativeCheckpoint = 0;
       cubes = [];
       powerUps = [];
       rockets = [];
@@ -409,6 +698,28 @@ export default function PlayArea() {
       frenzyTimer = 0;
       phaseRushTimer = 0;
       phaseRushStacks = 0;
+      slowMo = 0;
+      autoSlicer = 0;
+      multiScore = 0;
+      rocketRain = 0;
+      magnetActive = 0;
+      shieldActive = false;
+      chaosFrenzyTimer = 0;
+      giantModeTimer = 0;
+      gdSectionIndex = 0;
+      gdSectionBanner = "";
+      gdPracticeMode = true;
+      gdCheckpointReady = true;
+      gdInvulnTimer = 0;
+      clearGdModifier();
+      gdMiniBossTriggered = false;
+      gdMiniBossActive = false;
+      gdMiniBossTimer = 0;
+      gdMiniBossFireTimer = 0;
+      gdMiniBossDroneY = H * 0.45;
+      gdBestRank = getStoredRank(currentLevel);
+      gdCoreGoalReached = false;
+      powerCooldowns = {};
       levelLives = skill.hp ? 3 : 1;
       mineArmor = skill.ironskin ? 3 : 0;
       fortressDamage = 0;
@@ -420,11 +731,55 @@ export default function PlayArea() {
       doubleTimeTimer = 30 * 60;
       guardianTimer = 30 * 60;
       entropyTimer = 5 * 60;
+      bossMaxHealth = 100;
+      eyeCore.x = W * 0.5;
+      eyeCore.y = H * 0.24;
+      eyeCore.tx = eyeCore.x;
+      eyeCore.ty = eyeCore.y;
+      eyeCore.active = false;
+      eyeCore.pulse = 0;
+      eyeCore.burst = 0;
+      eyeCore.reveal = 0;
+      lightningTimer = 0;
+      lightningHue = 230;
+      lightningXOffset = 0;
+      lightningSpeed = 1.2;
+      lightningIntensity = 1.1;
+      lightningSize = 1;
+      atomicSequenceTimer = 0;
       
     levelInSector = ((currentLevel - 1) % LEVELS_PER_SECTOR) + 1;
     const sectorNum = Math.ceil(currentLevel / LEVELS_PER_SECTOR);
+    isTestingBossLevel = sectorNum === TESTING_BOSS_SECTOR_ID || currentLevel === TESTING_BOSS_LEVEL;
 
-    if (sectorNum === 99) {
+    if (isTestingBossLevel) {
+        levelType = 'boss';
+        targetsNeeded = 75;
+        bossX = W / 2;
+        bossY = -260;
+        bossMaxHealth = 150;
+        bossHealth = bossMaxHealth;
+        bossPhase = 1;
+        bossVx = 0;
+        bossLaserTimer = 900;
+        bossLaserActive = false;
+        bossLaserAngle = 0;
+        eyeCore.x = W * 0.5;
+        eyeCore.y = H * 0.24;
+        eyeCore.tx = eyeCore.x;
+        eyeCore.ty = eyeCore.y;
+        eyeCore.active = true;
+        eyeCore.reveal = 0;
+        awardAchievement("boss_tester");
+        setBossIntro("BOSS TEST LEVEL");
+        setTimeout(() => {
+          setBossIntro((prev) => (prev === "BOSS TEST LEVEL" ? null : prev));
+        }, 1400);
+    } else if (currentLevel === 1) {
+        levelType = 'chaos_intro';
+        targetsNeeded = 18;
+        timeRemaining = 38;
+      } else if (sectorNum === 99) {
         levelType = levelInSector % 2 === 0 ? 'snail' : 'gd';
         targetsNeeded = 10 + levelInSector * 2;
         if (levelType === 'snail') initSnailRace();
@@ -435,7 +790,7 @@ export default function PlayArea() {
         }
       } else if (levelInSector === 11) {
         levelType = 'boss'; targetsNeeded = 50;
-        bossX = W/2; bossY = -200; bossHealth = 100; bossPhase = 1; bossVx = 0;
+        bossX = W/2; bossY = -200; bossMaxHealth = 100; bossHealth = 100; bossPhase = 1; bossVx = 0;
       } else if (levelInSector === 1 && sectorNum > 1) {
         // CHAOS BONUS — the first level of every new sector (i.e. right after clearing a boss)
         levelType = 'chaos_bonus';
@@ -448,10 +803,19 @@ export default function PlayArea() {
         gdObstacles = []; gdDistanceTravelled = 0; gdJumpQueued = false; gdRocketTimer = 1500;
         spawnGDObstacles();
       } else if (levelInSector === 5) {
-        // NEURAL CHESS — every sector level 5
-        levelType = 'chess';
-        targetsNeeded = 1; // capture the enemy Core
-        initChess();
+        if (currentLevel === 5) {
+          levelType = 'operative';
+          targetsNeeded = 5;
+          timeRemaining = 60;
+          gdPlayer = { x: W * 0.18, y: H * 0.65, vy: 0, size: 36, grounded: true, gravFlipped: false, dead: false, jumpsUsed: 0 };
+          gdObstacles = []; gdDistanceTravelled = 0; gdJumpQueued = false; gdRocketTimer = 1200;
+          spawnGDObstacles();
+        } else {
+          // Keep classic mode for later sectors, while Level 5 stays the special operative mission.
+          levelType = 'chess';
+          targetsNeeded = 1;
+          initChess();
+        }
       } else if (levelInSector === 7 || levelInSector === 10) {
         // Cube shooter levels
         levelType = 'snail';
@@ -473,6 +837,8 @@ export default function PlayArea() {
       const ceilY = H * 0.1;
       let ox = W + 200;
       let cubesPlaced = 0;
+      let giantOrbsPlaced = 0;
+      let bonusRoutePlaced = 0;
       const totalCubesNeeded = targetsNeeded;
       
       const sector = Math.ceil(currentLevel / LEVELS_PER_SECTOR);
@@ -485,6 +851,7 @@ export default function PlayArea() {
         ox += 500;
         gdObstacles.push({x:ox, y:floorY-80, w:200, h:14, type:'platform', isMine:false});
         gdObstacles.push({x:ox+100, y:floorY-130, w:40, h:40, type:'cube', isMine:false, collected:false}); cubesPlaced++;
+        gdObstacles.push({x:ox+250, y:floorY-210, w:36, h:36, type:'giant_orb', collected:false}); giantOrbsPlaced++;
         ox += 600;
         
         // 2. Build-up: Spikes and gaps
@@ -505,6 +872,7 @@ export default function PlayArea() {
         gdObstacles.push({x:ox+560, y:floorY, w:30, h:50, type:'spike', isMine:true});
         gdObstacles.push({x:ox+750, y:floorY-150, w:80, h:14, type:'platform', isMine:false, vy:2, startY:floorY-250, endY:floorY-50});
         gdObstacles.push({x:ox+770, y:floorY-200, w:40, h:40, type:'cube', isMine:false, collected:false}); cubesPlaced++;
+        gdObstacles.push({x:ox+920, y:floorY-245, w:36, h:36, type:'giant_orb', collected:false}); giantOrbsPlaced++;
         ox += 1200;
 
         // 4. Release: Short easier section
@@ -521,6 +889,7 @@ export default function PlayArea() {
         gdObstacles.push({x:ox+630, y:floorY, w:30, h:50, type:'spike', isMine:true});
         gdObstacles.push({x:ox+750, y:floorY-150, w:80, h:14, type:'platform', isMine:false});
         gdObstacles.push({x:ox+770, y:floorY-200, w:40, h:40, type:'cube', isMine:false, collected:false}); cubesPlaced++;
+        gdObstacles.push({x:ox+860, y:floorY-250, w:36, h:36, type:'giant_orb', collected:false}); giantOrbsPlaced++;
         gdObstacles.push({x:ox+950, y:floorY, w:30, h:50, type:'spike', isMine:true});
         gdObstacles.push({x:ox+980, y:floorY, w:30, h:50, type:'spike', isMine:true});
         gdObstacles.push({x:ox+1010, y:floorY, w:30, h:50, type:'spike', isMine:true});
@@ -532,6 +901,7 @@ export default function PlayArea() {
           cubesPlaced++;
         }
         
+        operativeTrackGoal = Math.max(1800, ox + 600);
         gdObstacles.push({ x: ox + 600, y: 0, w: 12, h: H, type:'finish', isMine:false });
         return;
       }
@@ -575,7 +945,11 @@ export default function PlayArea() {
             laserVy: (Math.random() < 0.5 ? 1 : -1) * (1.5 + Math.random() * 2),
           });
           ox += 180 + Math.random()*160;
-        } else if (type < 0.72 || shouldForceCube) {
+        } else if (type < 0.58 && !shouldForceCube && currentLevel >= 3 && giantOrbsPlaced < 3) {
+          gdObstacles.push({ x: ox, y: floorY - 120 - Math.random() * 120, w: 36, h: 36, type: 'giant_orb', collected: false });
+          giantOrbsPlaced++;
+          ox += 170 + Math.random() * 140;
+        } else if (type < 0.76 || shouldForceCube) {
           gdObstacles.push({ x: ox, y: floorY - 90 - Math.random()*130, w: 40, h: 40, type:'cube', isMine:false, collected:false });
           cubesPlaced++;
           ox += 110 + Math.random()*110;
@@ -585,16 +959,27 @@ export default function PlayArea() {
           ox += 220 + Math.random()*180;
         }
 
+        if (i > 6 && Math.random() < 0.2 && bonusRoutePlaced < 18) {
+          const riskX = ox + 30 + Math.random() * 120;
+          const riskY = ceilY + 48 + Math.random() * 88;
+          gdObstacles.push({ x: riskX, y: riskY, w: 42, h: 42, type: 'reward_cube', collected: false });
+          gdObstacles.push({ x: riskX + 46, y: Math.min(floorY - 12, riskY + 34), w: 30, h: 50, type: 'spike', isMine: true });
+          bonusRoutePlaced++;
+        } else if (i > 6 && Math.random() < 0.15) {
+          const safeX = ox + 20 + Math.random() * 90;
+          const safeY = floorY - 64 - Math.random() * 48;
+          gdObstacles.push({ x: safeX, y: safeY, w: 34, h: 34, type: 'safe_cube', collected: false });
+        }
+
       }
       // FINISH LINE at end of track
+      operativeTrackGoal = Math.max(2200, ox + 200);
       gdObstacles.push({ x: ox + 200, y: 0, w: 12, h: H, type:'finish', isMine:false });
     };
 
     const initSnailRace = () => {
       snailLaneCount = 3;
-      const trackLeft = W * 0.12;
-      const trackRight = W * 0.88;
-      const trackBottom = H * 0.84;
+      const { left: trackLeft, right: trackRight, bottom: trackBottom } = getSnailBounds();
       const startX = (trackLeft + trackRight) / 2;
       const startY = trackBottom - 58;
       snailPlayer = {
@@ -660,11 +1045,18 @@ export default function PlayArea() {
       let spawnRate = 600 - (currentLevel * 10);
       
       if (levelType === 'boss') {
-        if (cubes.length < 15) cubes.push(createCube(Math.random() < 0.3));
-        spawnRate = 300;
-      } else if (levelType === 'gd' || levelType === 'chess' || levelType === 'snail') {
+        const maxBossCubes = isTestingBossLevel ? 7 : ULTRA_SMOOTH_MODE ? 10 : 15;
+        if (cubes.length < maxBossCubes) cubes.push(createCube(Math.random() < 0.28));
+        spawnRate = ULTRA_SMOOTH_MODE ? 360 : 300;
+      } else if (levelType === 'gd' || levelType === 'operative' || levelType === 'chess' || levelType === 'snail') {
         // GD, cube shooter, and Chess modes handled in draw loop
         spawnRate = 9999;
+      } else if (levelType === 'chaos_intro') {
+        if (cubes.length < 18) {
+          const sides = ['bottom', 'left', 'right', 'rain', 'diagonal_left', 'diagonal_right', 'zigzag'];
+          cubes.push(createCube(Math.random() < 0.16, 'ninja', 0, 0, Math.random() < 0.25, sides[Math.floor(Math.random() * sides.length)]));
+        }
+        spawnRate = 170;
       } else if (levelType === 'ninja') {
         if (cubes.length < 5 + currentLevel) {
           const rand = Math.random();
@@ -677,6 +1069,7 @@ export default function PlayArea() {
       // Regular power-ups (added chaos)
       if (Math.random() < 0.005 && levelType !== 'static' && levelType !== 'boss' && powerUps.length < 2) {
         const types = ['slow', 'freeze', 'multi', 'auto', 'rocket', 'magnet', 'shield', 'quake', 'whiteout', 'void'];
+        if (levelType === 'gd' || levelType === 'operative') types.push('giant', 'giant');
         if (skill.chaos) types.push('chaos');
         powerUps.push({
           x: Math.random() * (W - 200) + 100,
@@ -714,18 +1107,27 @@ export default function PlayArea() {
     spawnText(patternLabels[currentPattern] || 'PHASE INIT', W/2, H/2 + 40, planet.color, 20);
 
     const createParticles = (x: number, y: number, color: string, count = 20) => {
-      for(let i=0; i<count; i++) {
+      const fxScale = isTestingBossLevel ? 0.28 : ULTRA_SMOOTH_MODE ? 0.46 : 1;
+      const particleCount = Math.max(4, Math.floor(count * fxScale));
+      for (let i = 0; i < particleCount; i++) {
         particles.push({ x, y, vx: (Math.random()-0.5)*30, vy: (Math.random()-0.5)*30, life: 1, color, size: Math.random()*4+1 });
       }
-      // Also spawn pixel sparks
-      for(let i=0; i<8; i++) {
+      const sparkCount = Math.max(2, Math.floor(8 * fxScale));
+      for (let i = 0; i < sparkCount; i++) {
         pixelSparks.push({ x, y, vx: (Math.random()-0.5)*80, vy: -Math.random()*60-20, life: 1, color, size: Math.random()*3+1 });
       }
     };
 
-    const getSlowDuration = () => skill.overclock ? 1200 : skill.reflexes ? 800 : 400;
+    const getSlowDuration = () => (skill.overclock ? 220 : skill.reflexes ? 180 : 140);
     const getAutoDuration = () => skill.auto ? 800 : 400;
     const getMagnetDuration = () => skill.magnet2 ? 900 : 300;
+    const getGiantDuration = () => (skill.quantum ? 260 : 210);
+
+    const isPowerOnCooldown = (type: string) => (powerCooldowns[type] ?? 0) > 0;
+    const startPowerCooldown = (type: string) => {
+      const duration = POWER_COOLDOWN_FRAMES[type];
+      if (duration) powerCooldowns[type] = duration;
+    };
 
     const getScoreMultiplier = () => {
       let multiplier = 1;
@@ -768,6 +1170,7 @@ export default function PlayArea() {
 
     const absorbHazard = (reason: string, x: number, y: number, options: { mine?: boolean; boss?: boolean; racing?: boolean } = {}) => {
       if (options.mine && skill.glass) return false;
+      if (reason.includes("LASER") || reason.includes("BEAM")) laserContactCount++;
 
       const block = (label: string, color: string) => {
         sfx.shield();
@@ -800,6 +1203,8 @@ export default function PlayArea() {
       if (options.mine && timewarpAvailable) {
         timewarpAvailable = false;
         slowMo = Math.max(slowMo, getSlowDuration());
+        usedTimeMechanic = true;
+        startPowerCooldown("slow");
         block('TIME WARP!', '#00f2ff');
         return true;
       }
@@ -841,10 +1246,12 @@ export default function PlayArea() {
       }
       if (levelLives > 1) {
         levelLives--;
+        levelTookDamage = true;
         block(`EXTRA HP: ${levelLives} LEFT`, '#ffffff');
         return true;
       }
 
+      levelTookDamage = true;
       spawnText(reason, W/2, H/2, COLOR_MINE, 56);
       return false;
     };
@@ -865,10 +1272,16 @@ export default function PlayArea() {
 
     const endLevel = (reason: string, success = false) => {
       active = false;
+      paused = false;
+      setIsPaused(false);
       
       if (success) {
         sfx.levelClear();
+        setBossIntro(null);
+        const levelRank = computeLevelRank();
+        gdBestRank = saveStoredRank(currentLevel, levelRank);
         const earnedXp = sessionScore / 10;
+        const testingBossRun = isTestingBossLevel;
         let creditMultiplier = skill.siphon ? 1.2 : 1;
         if (skill.chaos && levelType === 'chaos_bonus') creditMultiplier += 0.25;
         if (feverTimer > 0) creditMultiplier += 0.25;
@@ -876,15 +1289,35 @@ export default function PlayArea() {
         addScore(sessionScore);
         addXp(earnedXp);
         addCredits(earnedCredits);
-        completeLevel(currentLevel);
+        if (!testingBossRun) {
+          completeLevel(currentLevel);
+        } else {
+          setReplayLevel(TESTING_BOSS_LEVEL);
+        }
+
+        if (!testingBossRun) {
+          if (!levelTookDamage) awardAchievement("no_hit_run");
+          if (levelElapsed <= 35) awardAchievement("speed_demon");
+          if ((levelType === "gd" || levelType === "operative") && laserContactCount === 0) {
+            awardAchievement("laser_survivor");
+          }
+          if (usedTimeMechanic) awardAchievement("time_master");
+          if (levelType === "chaos_intro") awardAchievement("chaos_survived");
+          if (currentLevel >= 4) awardAchievement("operative_ready");
+        } else {
+          awardAchievement("boss_destroyed");
+        }
+
         // Always auto-advance — no modal during play.
         // Level select is accessible via MAP [M] or in the Hub.
-        const isBoss = levelInSector === 11;
-        const title = isBoss ? 'SECTOR SECURED' : 'PHASE CLEAR';
-        setLevelClearBanner(title);
+        const isBoss = levelInSector === 11 || testingBossRun;
+        const title = testingBossRun ? 'BOSS SIM CLEAR' : isBoss ? 'SECTOR SECURED' : 'PHASE CLEAR';
+        setLevelClearBanner(`${title} · ${levelRank}`);
+        spawnText(`${levelRank} RANK`, W / 2, H / 2 + 66, "#ffd700", 46);
         setTimeout(() => {
           setLevelClearBanner(null);
           setCurrentLevel(prev => {
+            if (testingBossRun) return TESTING_BOSS_LEVEL;
             const prevSector = Math.ceil(prev / LEVELS_PER_SECTOR);
             if (prevSector !== 99) return prev + 1;
             const firstBonusLevel = (99 - 1) * LEVELS_PER_SECTOR + 1;
@@ -894,6 +1327,7 @@ export default function PlayArea() {
           setRestartKey(k => k + 1);
         }, isBoss ? 2500 : 1500);
       } else {
+        setBossIntro(null);
         sfx.explosion();
         shake = 50;
         setGameResult({
@@ -908,17 +1342,24 @@ export default function PlayArea() {
 
 
     const activatePower = (p: any) => {
+      startPowerCooldown(p.type);
       sfx.powerup();
       glitchFrames = 12;
       shake = 20;
       if (p.type === 'rocket') { rocketRain = 300; spawnText('ROCKET RAIN!', W/2, H/2, '#ff1a24', 70); flashes.push({life:1, color:'#ff1a24'}); }
-      else if (p.type === 'slow') { slowMo = getSlowDuration(); spawnText('TIME FREEZE!', W/2, H/2, '#00f2ff', 70); flashes.push({life:1, color:'#00f2ff'}); }
-      else if (p.type === 'freeze') { slowMo = Math.max(slowMo, getSlowDuration() * 2); spawnText('DEEP FREEZE!', W/2, H/2, '#bff7ff', 76); flashes.push({life:1.2, color:'#ffffff', intensity:0.75}); shake = Math.max(shake, 28); }
+      else if (p.type === 'slow') { slowMo = Math.max(slowMo, getSlowDuration()); usedTimeMechanic = true; spawnText('TIME FREEZE!', W/2, H/2, '#00f2ff', 70); flashes.push({life:1, color:'#00f2ff'}); }
+      else if (p.type === 'freeze') { slowMo = Math.max(slowMo, getSlowDuration() + 40); usedTimeMechanic = true; spawnText('DEEP FREEZE!', W/2, H/2, '#bff7ff', 76); flashes.push({life:1.2, color:'#ffffff', intensity:0.75}); shake = Math.max(shake, 28); }
       else if (p.type === 'auto') { autoSlicer = getAutoDuration(); spawnText('AUTO SLICER!', W/2, H/2, '#00ff88', 70); flashes.push({life:1, color:'#00ff88'}); }
       else if (p.type === 'multi') { multiScore = 400; spawnText('SCORE x2!', W/2, H/2, '#ffd700', 70); flashes.push({life:1, color:'#ffd700'}); }
       else if (p.type === 'magnet') { magnetActive = getMagnetDuration(); spawnText('MAGNET!', W/2, H/2, '#ff88ff', 70); flashes.push({life:1, color:'#ff88ff'}); }
       else if (p.type === 'shield') { shieldActive = true; spawnText('SHIELD UP!', W/2, H/2, '#00aaff', 70); flashes.push({life:1, color:'#00aaff'}); }
       else if (p.type === 'chaos') { chaosFrenzyTimer = 600; spawnText('CHAOS FRENZY!', W/2, H/2, '#ff00ff', 80); flashes.push({life:1, color:'#ff00ff'}); shake=30; glitchFrames=20; }
+      else if (p.type === 'giant') {
+        giantModeTimer = Math.max(giantModeTimer, getGiantDuration());
+        spawnText('TITAN FORM!', W/2, H/2, '#ffcf66', 72);
+        flashes.push({life:1, color:'#ffcf66'});
+        shake = Math.max(shake, 34);
+      }
       else if (p.type === 'quake') {
         spawnText('SCREEN QUAKE!', W/2, H/2, '#ffffff', 76);
         flashes.push({life:0.9, color:'#ffffff', intensity:0.8});
@@ -941,11 +1382,34 @@ export default function PlayArea() {
         shake = Math.max(shake, 36);
       }
       else if (p.type === 'bomb') {
-        // ATOMIC BOMB — destroy ALL non-mine cubes + massive effects
+        // ATOMIC BOMB — short cinematic burst, then cleanup.
+        awardAchievement("atomic_trigger");
+        atomicSequenceTimer = Math.max(atomicSequenceTimer, 100);
+        slowMo = Math.max(slowMo, 58);
+        eyeCore.active = true;
+        triggerEyeBurst(1.7, true);
+        triggerLightning({ duration: 110, hue: 14, speed: 1.65, intensity: 1.35, size: 1.08 });
         spawnText('ATOMIC BOMB', W/2, H/2, '#ffd700', 80);
-        flashes.push({life:1, color:'#ffd700'}); flashes.push({life:0.8, color:'#ff4400'}); flashes.push({life:0.5, color:'#ffffff', intensity:0.8});
-        shake = 80; glitchFrames = 40;
-        sfx.explosion(); sfx.explosion();
+        flashes.push({life:1, color:'#ffd700'});
+        flashes.push({life:0.8, color:'#ff4400'});
+        flashes.push({life:0.5, color:'#ffffff', intensity:0.8});
+        shake = 80;
+        glitchFrames = 40;
+        sfx.explosion();
+        sfx.explosion();
+
+        if (levelType === "boss") {
+          const splash = isTestingBossLevel ? 30 : 22;
+          bossHealth -= splash;
+          bossRockets = [];
+          hazardBeams = [];
+          spawnText(`ATOMIC HIT -${splash}`, W/2, H * 0.22, '#ffd700', 34);
+          if (bossHealth <= 0) {
+            endLevel("BOSS ELIMINATED", true);
+            return;
+          }
+        }
+
         // Nuke every cube on screen with particle explosion
         if (levelType === 'chess') {
           for(let r=0;r<CHESS_ROWS;r++) {
@@ -1105,7 +1569,7 @@ export default function PlayArea() {
       // Big pixel burst
       for(let i=0;i<60;i++) pixelSparks.push({x,y,vx:(Math.random()-0.5)*300,vy:(Math.random()-0.5)*300,life:1,color:planet.color,size:Math.random()*4+2});
       
-      if (levelType === 'gd') {
+      if (levelType === 'gd' || levelType === 'operative') {
         const hitIdx = gdObstacles.findIndex(o => (o.type==='spike'||o.type==='mine'||o.type==='laser') && o.x > gdPlayer.x && o.x < gdPlayer.x + W/2);
         if (hitIdx !== -1) {
           const ob = gdObstacles[hitIdx];
@@ -1182,7 +1646,11 @@ export default function PlayArea() {
       const rushBonus = skill.phaserush ? 1 + phaseRushStacks * 0.1 : 1;
       const r = (autoSlicer > 0 ? 150 : baseHitbox) * rushBonus;
 
-      if (levelType === 'boss' && bossY > 0 && Math.abs(x - bossX) < 200 && Math.abs(y - bossY) < 100) {
+      const hitsBoss =
+        levelType === 'boss' &&
+        bossY > 0 &&
+        (Math.abs(x - bossX) < 200 && Math.abs(y - bossY) < 100);
+      if (hitsBoss) {
          bossHealth -= autoSlicer > 0 ? 2 : 1;
          sfx.bossHit();
          createParticles(x, y, COLOR_MINE);
@@ -1201,6 +1669,10 @@ export default function PlayArea() {
       
       powerUps.forEach(p => {
         if (!p.destroyed && Math.sqrt((x - p.x)**2 + (y - p.y)**2) < 60) {
+          if (isPowerOnCooldown(p.type)) {
+            spawnText(`${p.type.toUpperCase()} CD`, x, y - 26, "#888", 16);
+            return;
+          }
           p.destroyed = true;
           activatePower(p);
         }
@@ -1243,14 +1715,41 @@ export default function PlayArea() {
         if (phaseRushTimer <= 0) phaseRushStacks = 0;
       }
       if (glitchFrames > 0) glitchFrames--;
+
+      if (lightningTimer > 0) {
+        lightningTimer -= deltaTime / 16;
+        lightningHue = (lightningHue + 3.6 * (deltaTime / 16)) % 360;
+        lightningXOffset = Math.sin(tick * 1.7) * 0.14;
+        lightningIntensity = Math.max(0.8, lightningIntensity * 0.995);
+      } else {
+        lightningIntensity = 1.1;
+      }
+      if (atomicSequenceTimer > 0) atomicSequenceTimer -= deltaTime / 16;
+      eyeCore.pulse = Math.max(0, eyeCore.pulse - 0.025 * (deltaTime / 16));
+      eyeCore.burst = Math.max(0, eyeCore.burst - 0.045 * (deltaTime / 16));
+      eyeCore.reveal += ((eyeCore.active ? 1 : 0) - eyeCore.reveal) * 0.11;
+      eyeCore.x += (eyeCore.tx - eyeCore.x) * 0.15;
+      eyeCore.y += (eyeCore.ty - eyeCore.y) * 0.15;
       
       // Random ambient shakes — intense and frequent
       randomShakeTimer -= deltaTime;
       if (randomShakeTimer <= 0) {
-        shake = Math.max(shake, 6 + Math.random() * 10);
-        glitchFrames = Math.max(glitchFrames, Math.floor(Math.random() * 6));
-        randomShakeTimer = 600 + Math.random() * 1400;
-        for(let i=0;i<12;i++) pixelSparks.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-0.5)*30,vy:(Math.random()-0.5)*30,life:0.8,color:`hsl(${Math.floor(tick*80)%360},100%,70%)`,size:Math.random()*4+1});
+        if (levelType === 'chaos_bonus' || levelType === 'chaos_intro') {
+          shake = Math.max(shake, 3 + Math.random() * 6);
+          glitchFrames = Math.max(glitchFrames, 2 + Math.floor(Math.random() * 4));
+          for (let i = 0; i < 4; i++) {
+            pixelSparks.push({
+              x: Math.random() * W,
+              y: Math.random() * H,
+              vx: (Math.random() - 0.5) * 24,
+              vy: (Math.random() - 0.5) * 24,
+              life: 0.45,
+              color: `hsl(${Math.floor(tick * 80) % 360},100%,70%)`,
+              size: Math.random() * 2 + 1,
+            });
+          }
+        }
+        randomShakeTimer = 2200 + Math.random() * 2600;
       }
 
       ctx.save();
@@ -1275,11 +1774,22 @@ export default function PlayArea() {
       for(let i=0; i<W; i+=100) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
       for(let i=0; i<H; i+=100) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
 
+      if (paused && active) {
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+        return;
+      }
+
 
       if (active) {
+        levelElapsed += deltaTime / 1000;
         if (blastCooldown > 0) blastCooldown--;
         // Decay spell cooldowns
         Object.keys(spellCooldowns).forEach(k => { if (spellCooldowns[k] > 0) spellCooldowns[k]--; });
+        Object.keys(powerCooldowns).forEach(k => {
+          if (powerCooldowns[k] > 0) powerCooldowns[k] -= deltaTime / 16;
+        });
 
         if (skill.pulsewave) {
           pulsewaveTimer -= deltaTime/16;
@@ -1308,10 +1818,15 @@ export default function PlayArea() {
           entropyTimer -= deltaTime/16;
           if (entropyTimer <= 0) {
             entropyTimer = 5 * 60;
-            const types = ['slow','freeze','multi','auto','rocket','magnet','shield','quake','whiteout','void','bomb'];
+            const types = ['slow','freeze','multi','auto','rocket','magnet','shield','quake','whiteout','void','bomb','giant'];
             powerUps.push({ x: Math.random()*W, y: H+60, vx:(Math.random()-0.5)*8, vy:-Math.random()*14-10, gravity:0.2, type:types[Math.floor(Math.random()*types.length)], destroyed:false });
             spawnText('ENTROPY DROP', W/2, H - 80, '#ff8800', 20);
           }
+        }
+
+        if (giantModeTimer > 0) {
+          giantModeTimer -= deltaTime / 16;
+          if (giantModeTimer <= 0) giantModeTimer = 0;
         }
         
         // Rotate spawn pattern every ~4 seconds
@@ -1325,7 +1840,7 @@ export default function PlayArea() {
         }
         
         // GD Platformer level
-        if (levelType === 'gd') {
+        if (levelType === 'gd' || levelType === 'operative') {
           const floorY = H * 0.75;
           const ceilY  = H * 0.1;
           const sector = Math.ceil(currentLevel / LEVELS_PER_SECTOR);
@@ -1334,8 +1849,106 @@ export default function PlayArea() {
              // Momentum: start slow, build up as player travels
              baseSpeed = 4 + Math.min(6.5, gdDistanceTravelled / 1500); 
           }
-          const gdSpd  = baseSpeed * dt;
-          const gravity = gdPlayer.gravFlipped ? -0.5 : 0.5;
+          updateGdSectionState();
+          const sectionSpeedMul = gdSectionIndex === 0 ? 0.95 : gdSectionIndex === 1 ? 1.24 : gdSectionIndex === 2 ? 1.05 : 1.34;
+          const gdSpd  = baseSpeed * sectionSpeedMul * dt;
+          const gravityBase = gdPlayer.gravFlipped ? -0.5 : 0.5;
+          const gravity = gravityBase;
+          const titanIntensity = giantModeTimer > 0 ? 2.1 : 1;
+
+          if (gdModifierCooldown > 0) gdModifierCooldown -= deltaTime / 16;
+          if (gdModifierTimer > 0) {
+            gdModifierTimer -= deltaTime / 16;
+            if (gdModifierTimer <= 0) clearGdModifier();
+          } else if (gdModifierCooldown <= 0 && Math.random() < 0.008) {
+            triggerGdModifier();
+          }
+
+          const progressNow = getTrackProgress();
+          if (!gdMiniBossTriggered && progressNow >= 0.52) {
+            gdMiniBossTriggered = true;
+            gdMiniBossActive = true;
+            gdMiniBossTimer = 11.5 * 60;
+            gdMiniBossFireTimer = 0;
+            gdMiniBossDroneY = Math.max(ceilY + 70, Math.min(floorY - 70, gdPlayer.y));
+            spawnText("MINI-BOSS: STRIKE DRONE", W / 2, 88, "#ff4466", 28);
+          }
+
+          if (gdMiniBossActive) {
+            gdMiniBossTimer -= deltaTime / 16;
+            gdMiniBossFireTimer -= deltaTime / 16;
+            gdMiniBossDroneY += Math.sin(tick * 2.2) * 1.6;
+            if (gdMiniBossFireTimer <= 0) {
+              gdMiniBossFireTimer = 24 + Math.random() * 16;
+              const pattern = Math.floor(Math.random() * 3);
+              if (pattern === 0) {
+                for (let s = -1; s <= 1; s++) {
+                  gdObstacles.push({
+                    x: W + 170,
+                    y: Math.max(ceilY + 45, Math.min(floorY - 45, gdMiniBossDroneY + s * 48)),
+                    w: 74,
+                    h: 22,
+                    type: "rocket",
+                    isMine: true,
+                    vx: -(9.2 + Math.random() * 1.4),
+                    warn: 50,
+                  });
+                }
+              } else if (pattern === 1) {
+                const beamY = ceilY + 30 + Math.random() * Math.max(40, floorY - ceilY - 60);
+                hazardBeams.push({ y: beamY, life: 105, maxLife: 105, mini: true });
+              } else {
+                gdObstacles.push({ x: W + 110, y: floorY, w: 25, h: 45, type: "spike", isMine: true, telegraph: 30 });
+                gdObstacles.push({ x: W + 155, y: floorY, w: 25, h: 45, type: "spike", isMine: true, telegraph: 30 });
+              }
+            }
+            if (gdMiniBossTimer <= 0) {
+              gdMiniBossActive = false;
+              spawnText("MINI-BOSS CLEARED", W / 2, 88, "#00ff88", 24);
+              powerUps.push({
+                x: Math.min(W - 120, gdPlayer.x + 240),
+                y: Math.max(ceilY + 60, gdPlayer.y - 50),
+                vx: -2.4,
+                vy: -2.2,
+                gravity: 0.1,
+                    type: Math.random() < 0.65 ? "giant" : "shield",
+                    destroyed: false,
+                  });
+                }
+              }
+
+          ctx.save();
+          const laneGradient = ctx.createLinearGradient(0, ceilY, 0, floorY);
+          laneGradient.addColorStop(0, 'rgba(6, 12, 26, 0.62)');
+          laneGradient.addColorStop(0.5, 'rgba(10, 22, 42, 0.28)');
+          laneGradient.addColorStop(1, 'rgba(6, 8, 18, 0.55)');
+          ctx.fillStyle = laneGradient;
+          ctx.fillRect(0, ceilY, W, floorY - ceilY);
+
+          const streakCount = giantModeTimer > 0 ? 36 : 22;
+          ctx.lineWidth = 1.15;
+          for (let s = 0; s < streakCount; s++) {
+            const seed = s * 97.13;
+            const x = ((tick * (155 + titanIntensity * 65) + seed) % (W + 320)) - 160;
+            const yBase = ceilY + ((s * 41) % Math.max(1, floorY - ceilY));
+            const y = yBase + Math.sin(tick * 2.4 + s * 0.75) * (6 + titanIntensity * 5);
+            const len = 32 + ((s * 29) % 96);
+            const alpha = giantModeTimer > 0 ? 0.28 : 0.12;
+            ctx.strokeStyle = giantModeTimer > 0 ? `rgba(255, 200, 110, ${alpha})` : `rgba(125, 155, 255, ${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + len, y + Math.sin(tick * 3.1 + s) * 5);
+            ctx.stroke();
+          }
+
+          for (let y = ceilY + ((tick * (28 + titanIntensity * 12)) % 34); y < floorY; y += 34) {
+            ctx.strokeStyle = giantModeTimer > 0 ? 'rgba(255, 190, 120, 0.2)' : 'rgba(90, 130, 255, 0.08)';
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y + Math.sin(tick * 2.2 + y * 0.02) * 10);
+            ctx.stroke();
+          }
+          ctx.restore();
 
           gdRocketTimer -= deltaTime;
           if (!gdPlayer.dead && gdRocketTimer <= 0 && currentLevel > 2) {
@@ -1354,21 +1967,33 @@ export default function PlayArea() {
             spawnText('MISSILE LOCK', W - 130, warningY - 18, COLOR_MINE, 18);
           }
           
-          // Jump / flip gravity — UNLIMITED JUMP (as requested)
+          // Unlimited air jumps (restored behavior)
           if (gdJumpQueued && !gdPlayer.dead) {
             gdJumpQueued = false;
-            gdPlayer.vy = gdPlayer.gravFlipped ? 11 : -11;
+            const jumpPower = gdPlayer.gravFlipped ? 11 : -11;
+            gdPlayer.vy = jumpPower;
             gdPlayer.jumpsUsed++;
+            if (!firstJumpTriggered) {
+              firstJumpTriggered = true;
+              awardAchievement("first_jump");
+            }
             sfx.hit();
-            // Jump burst effect
-            for(let i=0;i<15;i++) pixelSparks.push({
-              x: gdPlayer.x, y: gdPlayer.y + (gdPlayer.gravFlipped ? -20 : 20),
-              vx: (Math.random()-0.5)*100, vy: (gdPlayer.gravFlipped ? -50 : 50),
-              life: 0.6, color: planet.color, size: Math.random()*4+1
-            });
+            for (let i = 0; i < 10; i++) {
+              pixelSparks.push({
+                x: gdPlayer.x,
+                y: gdPlayer.y + (gdPlayer.gravFlipped ? -20 : 20),
+                vx: (Math.random() - 0.5) * 85,
+                vy: (gdPlayer.gravFlipped ? -42 : 42),
+                life: 0.5,
+                color: planet.color,
+                size: Math.random() * 3 + 1,
+              });
+            }
           }
           
           if (!gdPlayer.dead) {
+            if (gdInvulnTimer > 0) gdInvulnTimer -= deltaTime / 16;
+            gdPlayer.size = 36;
             gdPlayer.vy += gravity * (deltaTime/16);
             gdPlayer.vy = Math.max(-20, Math.min(20, gdPlayer.vy));
             
@@ -1396,6 +2021,20 @@ export default function PlayArea() {
 
             gdPlayer.y += gdPlayer.vy * (deltaTime/16);
             gdDistanceTravelled += gdSpd * (deltaTime/16);
+
+            if (levelType === "operative") {
+              timeRemaining = Math.max(0, timeRemaining - deltaTime / 1000);
+              const progress = Math.min(1, gdDistanceTravelled / Math.max(1, operativeTrackGoal));
+              const checkpointMarks = [0.25, 0.5, 0.75];
+              if (operativeCheckpoint < checkpointMarks.length && progress >= checkpointMarks[operativeCheckpoint]) {
+                operativeCheckpoint++;
+                spawnText(`CHECKPOINT ${operativeCheckpoint}`, W / 2, 120, "#00ff88", 26);
+              }
+            }
+
+            const upperBound = ceilY + gdPlayer.size / 2;
+            const lowerBound = floorY - gdPlayer.size / 2;
+            gdPlayer.y = Math.max(upperBound, Math.min(lowerBound, gdPlayer.y));
 
             // ── Reset grounded every frame, then re-check all surfaces ──
             gdPlayer.grounded = false;
@@ -1444,10 +2083,52 @@ export default function PlayArea() {
           ctx.beginPath(); ctx.moveTo(0, floorY); ctx.lineTo(W, floorY); ctx.stroke();
           ctx.beginPath(); ctx.moveTo(0, ceilY); ctx.lineTo(W, ceilY); ctx.stroke();
           ctx.shadowBlur = 0;
+
+          ctx.save();
+          ctx.fillStyle = "rgba(0,0,0,0.35)";
+          ctx.fillRect(W - 278, 58, 252, 56);
+          ctx.strokeStyle = "rgba(255,255,255,0.16)";
+          ctx.strokeRect(W - 278, 58, 252, 56);
+          ctx.fillStyle = "#cde2ff";
+          ctx.font = "10px Rajdhani";
+          ctx.textAlign = "left";
+          ctx.fillText(`SECTION ${gdSectionIndex + 1} · ${gdSectionBanner || GD_SECTION_LABELS[gdSectionIndex]}`, W - 266, 78);
+          const modifierLabel =
+            gdModifierType === "laserstorm" ? "LASER STORM" : "NONE";
+          ctx.fillStyle = gdModifierType === "none" ? "#9aa4b2" : "#ffd36a";
+          ctx.fillText(`MODIFIER: ${modifierLabel}`, W - 266, 94);
+          ctx.fillStyle = gdCheckpointReady ? "#7ef0b1" : "#d2a86b";
+          ctx.fillText(`CHECKPOINT: ${gdCheckpointReady ? "READY" : "USED"} · PRACTICE ${gdPracticeMode ? "ON" : "OFF"}`, W - 266, 108);
+          ctx.restore();
+
+          if (gdMiniBossActive) {
+            ctx.save();
+            ctx.shadowColor = "#ff4d7f";
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = "#ff4d7f";
+            ctx.lineWidth = 2;
+            ctx.fillStyle = "rgba(255,77,127,0.2)";
+            ctx.beginPath();
+            ctx.arc(W - 120, gdMiniBossDroneY, 22, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(W - 120, gdMiniBossDroneY);
+            ctx.lineTo(W - 160, gdPlayer.y);
+            ctx.stroke();
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "9px Rajdhani";
+            ctx.fillText(`DRONE ${(gdMiniBossTimer / 60).toFixed(1)}s`, W - 172, gdMiniBossDroneY - 30);
+            ctx.restore();
+          }
           
           // Scroll + draw obstacles
           gdObstacles.forEach((ob, i) => {
             ob.x -= gdSpd * (deltaTime/16);
+            if (ob.telegraph && ob.telegraph > 0) {
+              ob.telegraph -= deltaTime / 16;
+            }
+            const telegraphActive = (ob.telegraph ?? 0) > 0;
             
             if (ob.type === 'platform') {
               // Moving platform logic
@@ -1486,7 +2167,7 @@ export default function PlayArea() {
               // Move laser up/down with oscillating speed
               const sinMove = Math.sin(tick * 0.05 + i) * 3;
               ob.y += (ob.laserVy + sinMove) * (deltaTime/16);
-              if (ob.y <= ob.laserMinY || ob.y + ob.h >= ob.laserMaxY) {
+              if (ob.y <= ob.laserMinY || ob.y >= ob.laserMaxY) {
                 ob.laserVy *= -1;
                 // Spark effect on bounce
                 for(let j=0; j<5; j++) pixelSparks.push({x:ob.x, y:ob.y+(ob.laserVy>0?0:ob.h), vx:(Math.random()-0.5)*50, vy:(Math.random()-0.5)*50, life:0.5, color:'#ff0066', size:2});
@@ -1516,7 +2197,19 @@ export default function PlayArea() {
               if (!gdPlayer.dead) {
                 const px = gdPlayer.x, py = gdPlayer.y, hs = gdPlayer.size/2;
                 if (px + hs > ob.x && px - hs < ob.x + ob.w && py + hs > ob.y && py - hs < ob.y + ob.h) {
+                  if (giantModeTimer > 0) {
+                    const smash = awardPoints(180);
+                    createParticles(ob.x + ob.w / 2, ob.y + ob.h / 2, "#ffcf66", 28);
+                    spawnText(`SMASH +${smash}`, ob.x, ob.y - 12, "#ffcf66", 18);
+                    gdObstacles.splice(i, 1);
+                    return;
+                  }
+                  if (gdInvulnTimer > 0 || telegraphActive) return;
                   if (absorbHazard('LASER DISINTEGRATION', px, py, { racing: true })) {
+                    gdObstacles.splice(i, 1);
+                    return;
+                  }
+                  if (tryGdPracticeRespawn("LASER HIT", px, py, "#ff0066")) {
                     gdObstacles.splice(i, 1);
                     return;
                   }
@@ -1570,7 +2263,19 @@ export default function PlayArea() {
                 const hit = Math.abs(gdPlayer.x - ob.x) < gdPlayer.size/2 + ob.w/2 &&
                   Math.abs(gdPlayer.y - ob.y) < gdPlayer.size/2 + ob.h/2;
                 if (hit) {
+                  if (giantModeTimer > 0 && ob.warn <= 0) {
+                    const smash = awardPoints(210);
+                    createParticles(ob.x, ob.y, "#ffcf66", 32);
+                    spawnText(`CRUSH +${smash}`, ob.x, ob.y - 12, "#ffcf66", 18);
+                    gdObstacles.splice(i, 1);
+                    return;
+                  }
+                  if (ob.warn > 0 || telegraphActive || gdInvulnTimer > 0) return;
                   if (absorbHazard('MISSILE HIT', gdPlayer.x, gdPlayer.y, { racing: true })) {
+                    gdObstacles.splice(i, 1);
+                    return;
+                  }
+                  if (tryGdPracticeRespawn("MISSILE HIT", gdPlayer.x, gdPlayer.y, COLOR_MINE)) {
                     gdObstacles.splice(i, 1);
                     return;
                   }
@@ -1586,6 +2291,17 @@ export default function PlayArea() {
             }
 
             if (ob.type === 'spike' || ob.type === 'mine') {
+              if (ob.x > gdPlayer.x + 60 && ob.x < gdPlayer.x + 340) {
+                const warnAlpha = 0.18 + (Math.sin(tick * 10 + ob.x * 0.01) + 1) * 0.08;
+                ctx.save();
+                ctx.fillStyle = `rgba(255, 40, 90, ${warnAlpha})`;
+                if (ob.type === "spike") {
+                  ctx.fillRect(ob.x - 10, floorY - 12, Math.max(24, ob.w + 20), 8);
+                } else {
+                  ctx.fillRect(ob.x - (ob.w / 2) - 12, ob.y - (ob.h / 2) - 12, ob.w + 24, ob.h + 24);
+                }
+                ctx.restore();
+              }
               // Draw danger obstacle
               ctx.save();
               ctx.fillStyle = '#1a0000';
@@ -1612,7 +2328,19 @@ export default function PlayArea() {
                   ? (px+gdPlayer.size/2 > ob.x && px-gdPlayer.size/2 < ob.x+ob.w && py+gdPlayer.size/2 > ob.y-ob.h && py < ob.y)
                   : (Math.abs(px-ob.x)<gdPlayer.size/2+ob.w/2 && Math.abs(py-ob.y)<gdPlayer.size/2+ob.h/2);
                 if (hit) {
+                  if (giantModeTimer > 0) {
+                    const smash = awardPoints(ob.type === "mine" ? 220 : 160);
+                    createParticles(ob.type === "mine" ? ob.x : ob.x + ob.w / 2, ob.y, "#ffcf66", 30);
+                    spawnText(`SMASH +${smash}`, px + 28, py - 20, "#ffcf66", 18);
+                    gdObstacles.splice(i, 1);
+                    return;
+                  }
+                  if (telegraphActive || gdInvulnTimer > 0) return;
                   if (absorbHazard('GD FAILED', px, py, { mine: ob.type === 'mine', racing: true })) {
+                    gdObstacles.splice(i, 1);
+                    return;
+                  }
+                  if (tryGdPracticeRespawn("CRASH", px, py, COLOR_MINE)) {
                     gdObstacles.splice(i, 1);
                     return;
                   }
@@ -1638,7 +2366,66 @@ export default function PlayArea() {
                 addFever(3);
                 createParticles(ob.x, ob.y, planet.color, 20);
                 spawnText('+200', ob.x, ob.y - 30, planet.color, 24);
-                if (targetsDestroyed >= targetsNeeded) endLevel('GD COMPLETE', true);
+                if (targetsDestroyed >= targetsNeeded && !gdCoreGoalReached) {
+                  gdCoreGoalReached = true;
+                  spawnText("CORE QUOTA REACHED · PUSH TO FINISH", W / 2, 150, "#9ef6ff", 22);
+                }
+              }
+            } else if ((ob.type === 'reward_cube' || ob.type === 'safe_cube') && !ob.collected) {
+              const isRisk = ob.type === "reward_cube";
+              const s = isRisk ? 42 : 34;
+              ctx.save();
+              ctx.strokeStyle = isRisk ? "#ffde7a" : "#8cc9ff";
+              ctx.lineWidth = 2;
+              ctx.shadowColor = isRisk ? "#ffde7a" : "#8cc9ff";
+              ctx.shadowBlur = isRisk ? 18 : 12;
+              ctx.strokeRect(ob.x - s/2, ob.y - s/2, s, s);
+              ctx.fillStyle = isRisk ? "rgba(255,225,120,0.2)" : "rgba(120,180,255,0.16)";
+              ctx.fillRect(ob.x - s/2, ob.y - s/2, s, s);
+              ctx.font = "9px Rajdhani";
+              ctx.textAlign = "center";
+              ctx.fillStyle = isRisk ? "#ffde7a" : "#8cc9ff";
+              ctx.fillText(isRisk ? "RISK" : "SAFE", ob.x, ob.y + 3);
+              ctx.restore();
+
+              if (!gdPlayer.dead && Math.abs(gdPlayer.x - ob.x) < gdPlayer.size/2 + s/2 && Math.abs(gdPlayer.y - ob.y) < gdPlayer.size/2 + s/2) {
+                ob.collected = true;
+                const bonus = isRisk ? 450 : 140;
+                const got = awardPoints(bonus);
+                addFever(isRisk ? 5 : 2);
+                createParticles(ob.x, ob.y, isRisk ? "#ffde7a" : "#8cc9ff", 20);
+                spawnText(`+${got}`, ob.x, ob.y - 28, isRisk ? "#ffde7a" : "#8cc9ff", 22);
+              }
+            } else if (ob.type === 'giant_orb' && !ob.collected) {
+              const orbSize = ob.w ?? 36;
+              const pulse = 0.7 + Math.sin(tick * 8 + ob.x * 0.01) * 0.3;
+              ctx.save();
+              ctx.shadowColor = '#ffcf66';
+              ctx.shadowBlur = 26 * pulse;
+              ctx.strokeStyle = '#ffcf66';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(ob.x, ob.y, orbSize / 2, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.arc(ob.x, ob.y, orbSize * 0.3, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.fillStyle = 'rgba(255, 207, 102, 0.32)';
+              ctx.beginPath();
+              ctx.arc(ob.x, ob.y, orbSize * 0.22, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.fillStyle = '#ff5a3a';
+              ctx.fillRect(ob.x - 12, ob.y - 2, 24, 4);
+              ctx.fillRect(ob.x - 2, ob.y - 12, 4, 24);
+              ctx.restore();
+
+              if (!gdPlayer.dead && Math.abs(gdPlayer.x - ob.x) < gdPlayer.size/2 + orbSize/2 && Math.abs(gdPlayer.y - ob.y) < gdPlayer.size/2 + orbSize/2) {
+                ob.collected = true;
+                if (isPowerOnCooldown('giant')) {
+                  spawnText('TITAN CD', ob.x, ob.y - 26, '#888', 14);
+                } else {
+                  activatePower({ type: 'giant' });
+                }
               }
             } else if (ob.type === 'finish') {
               // FINISH LINE
@@ -1652,7 +2439,27 @@ export default function PlayArea() {
               if (!gdPlayer.dead && gdPlayer.x + gdPlayer.size/2 > ob.x) {
                 shake = 30; glitchFrames = 15;
                 for(let i=0;i<80;i++) pixelSparks.push({x:ob.x,y:H*0.4+Math.random()*H*0.3,vx:(Math.random()-0.5)*200,vy:(Math.random()-0.5)*200,life:1,color:'#ffd700',size:4});
-                endLevel('GD TRACK COMPLETE', true);
+                if (levelType === "operative") {
+                  const survived = timeRemaining <= 0;
+                  const collectedCores = targetsDestroyed >= targetsNeeded;
+                  const laserClean = laserContactCount === 0;
+                  if (survived && collectedCores && laserClean) {
+                    endLevel('EXTRACTION COMPLETE', true);
+                  } else {
+                    ob.x += 1200;
+                    spawnText('OBJECTIVES INCOMPLETE', W / 2, H / 2 - 30, '#ff1a24', 30);
+                    if (!survived) spawnText('SURVIVE TIMER', W / 2, H / 2 + 10, '#ffffff', 20);
+                    if (!collectedCores) spawnText('COLLECT CORES', W / 2, H / 2 + 40, '#ffffff', 20);
+                    if (!laserClean) spawnText('LASER CLEAN RUN FAILED', W / 2, H / 2 + 70, '#ffffff', 18);
+                  }
+                } else {
+                  if (targetsDestroyed >= targetsNeeded) {
+                    endLevel('GD TRACK COMPLETE', true);
+                  } else {
+                    ob.x += 900;
+                    spawnText('COLLECT MORE CORES', W / 2, H / 2 - 20, '#ffcc66', 30);
+                  }
+                }
               }
             }
             if (ob.x < -300) gdObstacles.splice(i, 1);
@@ -1662,21 +2469,42 @@ export default function PlayArea() {
           // Draw GD player cube
           if (!gdPlayer.dead) {
             ctx.save();
-            ctx.shadowColor = planet.color; ctx.shadowBlur = 20;
-            ctx.fillStyle = planet.color + '33';
-            ctx.strokeStyle = planet.color; ctx.lineWidth = 3;
-            const px = gdPlayer.x - gdPlayer.size/2;
-            const py = gdPlayer.y - gdPlayer.size/2;
-            ctx.fillRect(px, py, gdPlayer.size, gdPlayer.size);
-            ctx.strokeRect(px, py, gdPlayer.size, gdPlayer.size);
+            const titanOn = giantModeTimer > 0;
+            ctx.shadowColor = titanOn ? '#ffcf66' : planet.color;
+            ctx.shadowBlur = titanOn ? 30 : 20;
+            ctx.fillStyle = titanOn ? 'rgba(255, 180, 90, 0.35)' : (planet.color + '33');
+            ctx.strokeStyle = titanOn ? '#ffcf66' : planet.color;
+            ctx.lineWidth = titanOn ? 3.5 : 3;
+            const renderSize = titanOn ? gdPlayer.size * 1.6 : gdPlayer.size;
+            const px = gdPlayer.x - renderSize/2;
+            const py = gdPlayer.y - renderSize/2;
+            ctx.fillRect(px, py, renderSize, renderSize);
+            ctx.strokeRect(px, py, renderSize, renderSize);
             // Inner cross
-            ctx.strokeStyle = planet.color; ctx.lineWidth = 1;
+            ctx.strokeStyle = titanOn ? '#ff8f52' : planet.color;
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(gdPlayer.x - gdPlayer.size*0.3, gdPlayer.y - gdPlayer.size*0.3);
-            ctx.lineTo(gdPlayer.x + gdPlayer.size*0.3, gdPlayer.y + gdPlayer.size*0.3);
-            ctx.moveTo(gdPlayer.x + gdPlayer.size*0.3, gdPlayer.y - gdPlayer.size*0.3);
-            ctx.lineTo(gdPlayer.x - gdPlayer.size*0.3, gdPlayer.y + gdPlayer.size*0.3);
+            ctx.moveTo(gdPlayer.x - renderSize*0.3, gdPlayer.y - renderSize*0.3);
+            ctx.lineTo(gdPlayer.x + renderSize*0.3, gdPlayer.y + renderSize*0.3);
+            ctx.moveTo(gdPlayer.x + renderSize*0.3, gdPlayer.y - renderSize*0.3);
+            ctx.lineTo(gdPlayer.x - renderSize*0.3, gdPlayer.y + renderSize*0.3);
             ctx.stroke();
+            if (titanOn) {
+              ctx.strokeStyle = 'rgba(255, 225, 130, 0.85)';
+              ctx.lineWidth = 2.2;
+              ctx.beginPath();
+              ctx.arc(gdPlayer.x, gdPlayer.y, renderSize * 0.58, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+            if (gdInvulnTimer > 0) {
+              ctx.strokeStyle = "#ffd36a";
+              ctx.lineWidth = 2;
+              ctx.setLineDash([5, 4]);
+              ctx.beginPath();
+              ctx.arc(gdPlayer.x, gdPlayer.y, gdPlayer.size * 0.76, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.setLineDash([]);
+            }
             ctx.restore();
             // Trail particles
             if (Math.random() < 0.5) pixelSparks.push({x:gdPlayer.x-gdPlayer.size/2,y:gdPlayer.y,vx:-2-Math.random()*3,vy:(Math.random()-0.5)*4,life:0.6,color:planet.color,size:3});
@@ -1686,18 +2514,12 @@ export default function PlayArea() {
           const progress = Math.min(1, targetsDestroyed / targetsNeeded);
           ctx.fillStyle = '#111'; ctx.fillRect(W*0.2, H - 30, W*0.6, 6);
           ctx.fillStyle = planet.color; ctx.fillRect(W*0.2, H - 30, W*0.6*progress, 6);
-          ctx.fillStyle = '#fff'; ctx.font = '10px Rajdhani'; ctx.textAlign = 'center';
-          const doubleJump = stats.skills.includes('hp');
-          ctx.fillText(`GD JET RUN - SPACE/CLICK JUMP${doubleJump?' - DOUBLE JUMP':''} - DODGE MISSILES - ${targetsDestroyed}/${targetsNeeded} CUBES`, W/2, H - 36);
           // Track ends naturally — no regen, finish line handles end
         }
 
         // ─ CUBE SHOOTER LEVEL ─
         if (levelType === 'snail') {
-          const trackTop = H * 0.14;
-          const trackBottom = H * 0.84;
-          const trackLeft = W * 0.12;
-          const trackRight = W * 0.88;
+          const { top: trackTop, bottom: trackBottom, left: trackLeft, right: trackRight } = getSnailBounds();
           const trackHeight = trackBottom - trackTop;
           const trackWidth = trackRight - trackLeft;
 
@@ -1970,39 +2792,32 @@ export default function PlayArea() {
           ctx.fillRect(W * 0.2, H - 34, W * 0.6, 6);
           ctx.fillStyle = planet.color;
           ctx.fillRect(W * 0.2, H - 34, W * 0.6 * routeProgress, 6);
-          ctx.fillStyle = '#fff';
-          ctx.font = '10px Rajdhani';
-          ctx.textAlign = 'center';
-          ctx.fillText(`VERTICAL CUBE SHOOTER - MOUSE/A-D MOVE - CLICK/SPACE FIRE UP - ${targetsDestroyed}/${targetsNeeded} CUBES`, W/2, H - 42);
         }
 
-        // ─ CHAOS BONUS LEVEL ─
-        if (levelType === 'chaos_bonus') {
+        // ─ CHAOS LEVELS ─
+        if (levelType === 'chaos_bonus' || levelType === 'chaos_intro') {
           timeRemaining -= deltaTime / 1000;
-          // MADNESS: spawn from ALL directions — NO MINES in chaos bonus
-          if (Math.random() < 0.85) {
+          const isIntroChaos = levelType === "chaos_intro";
+          if (Math.random() < (isIntroChaos ? 0.55 : 0.8)) {
             const sides = ['bottom','left','right','rain','diagonal_left','diagonal_right','zigzag'];
-            const bursts = skill.singularity ? 2 : 1;
+            const bursts = isIntroChaos ? 1 : (skill.singularity ? 2 : 1);
             for (let burst = 0; burst < bursts; burst++) {
               const randomSide = sides[Math.floor(Math.random() * sides.length)];
-              // isMine = false always in chaos bonus
-              cubes.push(createCube(false, 'ninja', 0, 0, Math.random() < 0.3, randomSide));
+              const mineChance = isIntroChaos ? 0.18 : 0;
+              cubes.push(createCube(Math.random() < mineChance, 'ninja', 0, 0, Math.random() < 0.3, randomSide));
             }
           }
-          // Extra glitch every frame
-          if (Math.random() < 0.15) {
+          if (Math.random() < 0.08) {
             glitchFrames = Math.max(glitchFrames, 3);
             shake = Math.max(shake, 2);
           }
-          // Powerups drop frequently
-          if (Math.random() < 0.008) {
-            const types = ['slow','freeze','multi','magnet','shield','quake','whiteout','void','bomb'];
+          if (Math.random() < 0.006) {
+            const types = ['slow','freeze','multi','magnet','shield','quake','whiteout','void','bomb','giant'];
             powerUps.push({ x: Math.random()*W, y: H+60, vx:(Math.random()-0.5)*8, vy:-Math.random()*14-10, gravity:0.2, type:types[Math.floor(Math.random()*types.length)], destroyed:false });
           }
-          if (timeRemaining <= 0) endLevel('CHAOS SURVIVED', true);
-          if (targetsDestroyed >= targetsNeeded) endLevel('CHAOS MASTERED', true);
-          // HUD
-          // HUD
+          if (timeRemaining <= 0) endLevel(isIntroChaos ? 'CHAOS INTRO COMPLETE' : 'CHAOS SURVIVED', true);
+          if (targetsDestroyed >= targetsNeeded) endLevel(isIntroChaos ? 'CHAOS INTRO COMPLETE' : 'CHAOS MASTERED', true);
+
           const trVal = Math.max(0, timeRemaining);
           ctx.save();
 
@@ -2010,7 +2825,7 @@ export default function PlayArea() {
           ctx.font = '14px Orbitron';
           ctx.fillStyle = trVal < 5 ? COLOR_MINE : '#ffd700';
           ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 15;
-          ctx.fillText(`CHAOS BONUS - ${trVal.toFixed(1)}s - ${targetsDestroyed}/${targetsNeeded}`, W/2, H - 50);
+          ctx.fillText(`${isIntroChaos ? "CHAOS INTRO" : "CHAOS BONUS"} - ${trVal.toFixed(1)}s - ${targetsDestroyed}/${targetsNeeded}`, W/2, H - 50);
           ctx.restore();
         }
 
@@ -2176,12 +2991,13 @@ export default function PlayArea() {
           if (r.y > H) rockets.splice(i, 1);
         });
 
-        // Pixel Sparks — heavier ambient + on-hit burst
-        if (Math.random() < 0.8) {
+        // Pixel Sparks — keep this very light in smooth mode.
+        const ambientSparkChance = isTestingBossLevel ? 0.05 : ULTRA_SMOOTH_MODE ? 0.12 : 0.24;
+        const sideSparkChance = isTestingBossLevel ? 0.02 : ULTRA_SMOOTH_MODE ? 0.05 : 0.1;
+        if (Math.random() < ambientSparkChance) {
           pixelSparks.push({x:Math.random()*W,y:H+5,vx:(Math.random()-0.5)*6,vy:-Math.random()*7-2,life:Math.random()*0.6+0.3,color:`hsl(${Math.floor(tick*60)%360},100%,70%)`,size:Math.random()*2.5+0.5});
         }
-        // Extra side sparks
-        if (Math.random() < 0.4) {
+        if (Math.random() < sideSparkChance) {
           const side = Math.random()<0.5 ? 0 : W;
           pixelSparks.push({x:side,y:Math.random()*H,vx:(side===0?1:-1)*Math.random()*6,vy:(Math.random()-0.5)*4,life:Math.random()*0.4+0.2,color:`hsl(${Math.floor(tick*40)%360},100%,60%)`,size:Math.random()*2+1});
         }
@@ -2212,27 +3028,24 @@ export default function PlayArea() {
         // ── BOSS PHASE SYSTEM ──
         if (levelType === 'boss') {
            // Phase transitions based on health
-           const newPhase = bossHealth > 66 ? 1 : bossHealth > 33 ? 2 : 3;
+           const bossHealthRatio = bossHealth / Math.max(1, bossMaxHealth);
+           const newPhase = bossHealthRatio > 0.66 ? 1 : bossHealthRatio > 0.33 ? 2 : 3;
            if (newPhase > bossPhase) {
              bossPhase = newPhase;
              shake = 30; glitchFrames = 20;
              spawnText(bossPhase === 2 ? `${bossProfile.name}: PHASE 2` : `${bossProfile.name}: PHASE 3`, W/2, H/2, bossProfile.color, 50);
              flashes.push({life:1, color:bossProfile.color});
-             for(let i=0;i<60;i++) pixelSparks.push({x:bossX,y:bossY,vx:(Math.random()-0.5)*200,vy:(Math.random()-0.5)*200,life:1,color:bossProfile.color,size:4});
+             const phaseBurstSparks = isTestingBossLevel ? 18 : ULTRA_SMOOTH_MODE ? 32 : 60;
+             for (let i = 0; i < phaseBurstSparks; i++) pixelSparks.push({x:bossX,y:bossY,vx:(Math.random()-0.5)*200,vy:(Math.random()-0.5)*200,life:1,color:bossProfile.color,size:4});
            }
 
-           // Phase 1: descend and stay
            if (bossY < 150) bossY += 2 * (deltaTime/16);
-
-           // Phase 2: boss moves side to side
            if (bossPhase >= 2) {
              bossVx += Math.sin(tick * 1.5) * 0.4;
              bossVx *= 0.95;
              bossX += bossVx * (deltaTime/16);
              bossX = Math.max(W*0.25, Math.min(W*0.75, bossX));
            }
-
-           // Phase 3: boss dashes toward player cursor occasionally
            if (bossPhase === 3 && Math.floor(tick*30) % 90 === 0 && mouse.x > 0) {
              bossVx += (mouse.x > bossX ? 1 : -1) * 5;
              spawnText('DASH!', bossX, bossY + 60, COLOR_MINE, 24);
@@ -2260,7 +3073,8 @@ export default function PlayArea() {
              ctx.beginPath(); ctx.moveTo(bossX, bossY); ctx.lineTo(lx2, ly2); ctx.stroke();
              ctx.restore();
              // Pixel sparks along laser
-             for(let i=0;i<3;i++) {
+             const laserSparkCount = isTestingBossLevel ? 1 : 3;
+             for (let i = 0; i < laserSparkCount; i++) {
                const t=Math.random(); pixelSparks.push({x:bossX+Math.cos(bossLaserAngle)*t*W*0.8,y:bossY+Math.sin(bossLaserAngle)*t*H*0.8,vx:(Math.random()-0.5)*20,vy:(Math.random()-0.5)*20,life:0.4,color:bossProfile.accent,size:3});
              }
              if (mouse.x > 0) {
@@ -2276,7 +3090,8 @@ export default function PlayArea() {
            const bossClock = Math.floor(tick * 30);
            if (bossY > 50 && mouse.x > 0) {
              if ((bossProfile.pattern === 'meteor' || bossProfile.pattern === 'omega' || bossProfile.pattern === 'chaos') && bossClock % (bossPhase === 3 ? 38 : 58) === 0) {
-               for (let i = 0; i < bossPhase + 2; i++) {
+               const meteorCount = isTestingBossLevel ? Math.min(2, bossPhase + 1) : bossPhase + 2;
+               for (let i = 0; i < meteorCount; i++) {
                  const sx = Math.random() * W;
                  bossRockets.push({ x: sx, y: -50, vx: (mouse.x - sx) * 0.012, vy: 7 + bossPhase * 1.3, life: 1.8, color: bossProfile.color, kind: 'meteor' });
                }
@@ -2284,7 +3099,7 @@ export default function PlayArea() {
              }
 
              if ((bossProfile.pattern === 'ring' || bossProfile.pattern === 'omega' || bossProfile.pattern === 'chaos') && bossClock % (bossPhase === 3 ? 82 : 118) === 0) {
-               const count = bossPhase === 3 ? 14 : 9;
+               const count = isTestingBossLevel ? (bossPhase === 3 ? 8 : 6) : (bossPhase === 3 ? 14 : 9);
                for (let i = 0; i < count; i++) {
                  const a = (Math.PI * 2 * i) / count;
                  const spd = 4.2 + bossPhase;
@@ -2306,23 +3121,27 @@ export default function PlayArea() {
            if (Math.floor(tick * 30) % fireInterval === 0 && bossY > 50 && mouse.x > 0) {
              const angle = Math.atan2(mouse.y - bossY, mouse.x - bossX);
              const spd = 5 + bossPhase * 2 + levelInSector * 0.5;
-             const spread = bossProfile.pattern === 'laser' ? 2 + bossPhase : bossPhase === 3 ? 5 : bossPhase === 2 ? 3 : 3;
+             const spread = isTestingBossLevel
+               ? (bossProfile.pattern === 'laser' ? 2 : bossPhase === 3 ? 3 : 2)
+               : (bossProfile.pattern === 'laser' ? 2 + bossPhase : bossPhase === 3 ? 5 : bossPhase === 2 ? 3 : 3);
              for(let i=0;i<spread;i++) {
                const a = angle + (i - Math.floor(spread/2)) * 0.25;
                bossRockets.push({ x: bossX+(Math.random()-0.5)*200, y: bossY+100, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, life: 1.5, color: bossProfile.color });
              }
            }
 
-           // Draw boss body (gets more menacing per phase)
+           const hpRatio = Math.max(0, Math.min(1, bossHealth / Math.max(1, bossMaxHealth)));
+           const hpColor = hpRatio > 0.66 ? bossProfile.color : hpRatio > 0.33 ? bossProfile.accent : COLOR_MINE;
+
+           // Draw classic boss body.
            ctx.save();
            const bossGlow = 20 + bossPhase * 15 + Math.sin(tick * 4) * 10;
            ctx.shadowColor = bossProfile.color; ctx.shadowBlur = bossGlow;
            ctx.fillStyle = '#0a0a0a';
-           ctx.strokeStyle = bossPhase === 3 ? bossProfile.accent : bossPhase === 2 ? bossProfile.color : bossProfile.color;
+           ctx.strokeStyle = bossPhase === 3 ? bossProfile.accent : bossProfile.color;
            ctx.lineWidth = bossPhase >= 2 ? 3 : 2;
            ctx.fillRect(bossX - 200, bossY - 100, 400, 200);
            ctx.strokeRect(bossX - 200, bossY - 100, 400, 200);
-           // Phase 3: extra menacing inner rect
            if (bossPhase === 3) {
              ctx.strokeStyle = bossProfile.accent + '88';
              ctx.strokeRect(bossX-180, bossY-80, 360, 160);
@@ -2336,17 +3155,15 @@ export default function PlayArea() {
              ctx.beginPath();ctx.moveTo(i,bossY-100);ctx.lineTo(i,bossY+100);ctx.stroke();
            }
 
-           // Health bar
            ctx.fillStyle='#1a0000';ctx.fillRect(bossX-180,bossY+110,360,8);
-           const hpColor = bossHealth>66 ? bossProfile.color : bossHealth>33 ? bossProfile.accent : COLOR_MINE;
            ctx.fillStyle=hpColor;ctx.shadowColor=hpColor;ctx.shadowBlur=10;
-           ctx.fillRect(bossX-180,bossY+110,360*(bossHealth/100),8);
+           ctx.fillRect(bossX-180,bossY+110,360 * hpRatio,8);
            ctx.shadowBlur=0;
 
            ctx.fillStyle='#fff';ctx.font='22px Orbitron';ctx.textAlign='center';
            ctx.fillText(bossProfile.name,bossX,bossY+10);
            ctx.font='11px Rajdhani';ctx.fillStyle=hpColor;
-           ctx.fillText(`PHASE ${bossPhase} · HP ${bossHealth}`,bossX,bossY+32);
+           ctx.fillText(`PHASE ${bossPhase} · HP ${Math.ceil(bossHealth)}`,bossX,bossY+32);
         }
 
         // Boss rockets — dodge these!
@@ -2369,8 +3186,9 @@ export default function PlayArea() {
           ctx.fillRect(15, -3, 8, 6);
           ctx.restore();
           
-          // Pixel trail
-          pixelSparks.push({x:br.x,y:br.y,vx:(Math.random()-0.5)*5,vy:(Math.random()-0.5)*5,life:0.5,color:rocketColor,size:2});
+          if (!ULTRA_SMOOTH_MODE || !isTestingBossLevel || Math.random() < 0.3) {
+            pixelSparks.push({x:br.x,y:br.y,vx:(Math.random()-0.5)*5,vy:(Math.random()-0.5)*5,life:0.5,color:rocketColor,size:2});
+          }
           
           // Hit player cursor (danger zone around mouse)
           const distToPlayer = Math.sqrt((br.x - mouse.x)**2 + (br.y - mouse.y)**2);
@@ -2384,9 +3202,17 @@ export default function PlayArea() {
           if (br.life <= 0 || br.x < -100 || br.x > W+100 || br.y > H+100) bossRockets.splice(i, 1);
         });
 
-        // GD-style hazard beams — max 1 at a time, slower spawn
-        if (levelType !== 'boss' && hazardBeams.length === 0 && Math.floor(tick * 30) % 280 === 0 && currentLevel > 3) {
-          hazardBeams.push({ y: 80 + Math.random() * (H - 160), life: 150, maxLife: 150 });
+        // GD-style hazard beams
+        const inRunnerMode = levelType === "gd" || levelType === "operative";
+        const beamCap = (gdModifierType === "laserstorm" || gdMiniBossActive) ? 3 : 1;
+        const beamCadence = gdModifierType === "laserstorm" ? 68 : 280;
+        if (levelType !== 'boss' && hazardBeams.length < beamCap && Math.floor(tick * 30) % beamCadence === 0 && currentLevel > 3) {
+          const gdTop = H * 0.1 + 28;
+          const gdBottom = H * 0.75 - 28;
+          const minY = inRunnerMode ? gdTop : 80;
+          const maxY = inRunnerMode ? gdBottom : H - 80;
+          const maxLife = gdModifierType === "laserstorm" ? 112 : 150;
+          hazardBeams.push({ y: minY + Math.random() * Math.max(20, maxY - minY), life: maxLife, maxLife, storm: gdModifierType === "laserstorm" });
         }
         hazardBeams.forEach((b, i) => {
           b.life -= deltaTime/16;
@@ -2409,8 +3235,24 @@ export default function PlayArea() {
             ctx.beginPath(); ctx.moveTo(0, b.y); ctx.lineTo(W, b.y); ctx.stroke();
             ctx.shadowBlur = 0;
             ctx.restore();
-            // Check if mouse/player is in beam
-            if (Math.abs(mouse.y - b.y) < 15 && mouse.x > 0) {
+            // Check if player is in beam
+            if (inRunnerMode) {
+              if (!gdPlayer.dead && gdInvulnTimer <= 0 && Math.abs(gdPlayer.y - b.y) < gdPlayer.size * 0.42) {
+                if (giantModeTimer > 0) {
+                  const smash = awardPoints(140);
+                  spawnText(`BEAM CRUSH +${smash}`, gdPlayer.x + 50, b.y - 14, "#ffcf66", 16);
+                  hazardBeams.splice(i, 1);
+                  return;
+                }
+                if (absorbHazard('BEAM HIT', gdPlayer.x, gdPlayer.y, { racing: true })) {
+                  hazardBeams.splice(i, 1);
+                } else if (tryGdPracticeRespawn("BEAM HIT", gdPlayer.x, gdPlayer.y, COLOR_MINE)) {
+                  hazardBeams.splice(i, 1);
+                } else {
+                  endLevel('BEAM HIT', false);
+                }
+              }
+            } else if (Math.abs(mouse.y - b.y) < 15 && mouse.x > 0) {
               if (!absorbHazard('BEAM HIT', mouse.x, mouse.y)) endLevel('BEAM HIT', false);
               else hazardBeams.splice(i, 1);
             }
@@ -2491,7 +3333,7 @@ export default function PlayArea() {
             c.vy += c.gravity * dt * (deltaTime/16);
             
             if (c.y > H + 200 || c.x < -200 || c.x > W + 200) {
-              if (!c.isMine && levelType !== 'chaos_bonus') combo = 0;
+              if (!c.isMine && levelType !== 'chaos_bonus' && levelType !== 'chaos_intro') combo = 0;
               cubes.splice(i, 1);
               continue;
             }
@@ -2541,6 +3383,7 @@ export default function PlayArea() {
           quake: '#ffffff',
           whiteout: '#ffffff',
           void: '#bc13fe',
+          giant: '#ffcf66',
           bomb: '#ffd700',
         };
         powerUps.forEach((p, i) => {
@@ -2585,97 +3428,129 @@ export default function PlayArea() {
           }
         });
 
-        // --- Minimalist Hitman HUD ---
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'left';
-        
-        ctx.font = '10px Rajdhani';
-        ctx.letterSpacing = '3px';
-        ctx.fillText('OPERATIONAL METRICS', 30, 40);
-        
-        ctx.font = '24px Rajdhani';
-        ctx.letterSpacing = '1px';
-        ctx.fillText(`SCORE: ${sessionScore.toString().padStart(6, '0')}`, 30, 70);
-        
-        ctx.font = '14px Rajdhani';
-        ctx.fillStyle = combo > 10 ? COLOR_MINE : '#888';
-        ctx.fillText(`CHAIN: x${combo}`, 30, 95);
-        
-        // ── PERMANENT COMBO DISPLAY (top center, always visible) ──
-        if (combo > 0) {
-          const comboScale = Math.min(1, combo / 30);
-          const comboSize = 28 + comboScale * 24;
-          const comboAlpha = 0.5 + comboScale * 0.5;
-          const comboColor = combo >= 50 ? '#ffd700' : combo >= 20 ? '#ff1a24' : combo >= 10 ? '#bc13fe' : planet.color;
-          ctx.save();
-          ctx.globalAlpha = comboAlpha;
-          ctx.textAlign = 'center';
-          ctx.font = `${Math.round(comboSize)}px Orbitron`;
-          ctx.fillStyle = comboColor;
-          ctx.shadowColor = comboColor;
-          ctx.shadowBlur = 20 + comboScale * 20;
-          ctx.fillText(`x${combo}`, W/2, 52);
-          ctx.font = '10px Rajdhani';
-          ctx.letterSpacing = '4px';
-          ctx.fillStyle = '#ffffff';
-          ctx.shadowBlur = 0;
-          ctx.fillText('COMBO', W/2, 68);
-          ctx.restore();
-          // Shake with high combo
-          if (combo % 10 === 0 && combo > 0) shake = Math.max(shake, combo * 0.3);
+        capArray(pixelSparks, isTestingBossLevel ? 70 : ULTRA_SMOOTH_MODE ? 130 : 320);
+        capArray(particles, isTestingBossLevel ? 50 : ULTRA_SMOOTH_MODE ? 95 : 220);
+        capArray(floatingTexts, ULTRA_SMOOTH_MODE ? 18 : 26);
+        capArray(flashes, ULTRA_SMOOTH_MODE ? 5 : 8);
+        capArray(cubes, ULTRA_SMOOTH_MODE ? 56 : 80);
+        capArray(powerUps, 6);
+        capArray(rockets, ULTRA_SMOOTH_MODE ? 20 : 32);
+        capArray(bossRockets, isTestingBossLevel ? 16 : ULTRA_SMOOTH_MODE ? 24 : 44);
+        capArray(gdObstacles, ULTRA_SMOOTH_MODE ? 240 : 300);
+        capArray(snailShots, ULTRA_SMOOTH_MODE ? 18 : 24);
+
+        const intel = getLevelIntel(currentLevel, levelInSector);
+        const modeLabel =
+          levelType === "operative" ? "OPERATIVE RUN" :
+          levelType === "gd" ? "GD RUN" :
+          levelType === "snail" ? "VERTICAL SHOOTER" :
+          levelType === "chaos_intro" ? "CHAOS INTRO" :
+          levelType === "chaos_bonus" ? "CHAOS BONUS" :
+          levelType === "boss" ? "BOSS ASSAULT" :
+          levelType.toUpperCase();
+
+        const progressBase = Math.min(1, targetsDestroyed / Math.max(1, targetsNeeded));
+        const progressByTime =
+          levelType === "static" || levelType === "chaos_bonus" || levelType === "chaos_intro" || levelType === "operative"
+            ? 1 - Math.max(0, timeRemaining) / (levelType === "operative" ? 60 : levelType === "chaos_intro" ? 38 : 20)
+            : progressBase;
+        const bossProgress = levelType === "boss" ? 1 - Math.max(0, bossHealth) / Math.max(1, bossMaxHealth) : 0;
+        const progress = levelType === "boss" ? Math.max(0, Math.min(1, bossProgress)) : Math.max(progressBase, Math.min(1, progressByTime));
+
+        const powerState =
+          giantModeTimer > 0 ? { label: "TITAN FORM", progress: Math.min(1, giantModeTimer / getGiantDuration()) } :
+          slowMo > 0 ? { label: "TIME FREEZE", progress: Math.min(1, slowMo / (getSlowDuration() + 40)) } :
+          autoSlicer > 0 ? { label: "AUTO SLICER", progress: Math.min(1, autoSlicer / getAutoDuration()) } :
+          multiScore > 0 ? { label: "SCORE x2", progress: Math.min(1, multiScore / 400) } :
+          (powerCooldowns.giant ?? 0) > 0 ? { label: "TITAN CD", progress: Math.min(1, (powerCooldowns.giant ?? 0) / POWER_COOLDOWN_FRAMES.giant) } :
+          (powerCooldowns.freeze ?? 0) > 0 ? { label: "FREEZE CD", progress: Math.min(1, (powerCooldowns.freeze ?? 0) / POWER_COOLDOWN_FRAMES.freeze) } :
+          (powerCooldowns.slow ?? 0) > 0 ? { label: "WARP CD", progress: Math.min(1, (powerCooldowns.slow ?? 0) / POWER_COOLDOWN_FRAMES.slow) } :
+          { label: "READY", progress: 0 };
+
+        const modifierLabel =
+          gdModifierType === "laserstorm" ? "LASER STORM" : "NONE";
+        const modifierProgress = gdModifierTimer > 0 ? Math.min(1, gdModifierTimer / (gdModifierType === "laserstorm" ? 200 : 230)) : 0;
+        const runnerSection = GD_SECTION_LABELS[Math.max(0, Math.min(3, gdSectionIndex))];
+        const runnerMode = levelType === "gd" || levelType === "operative";
+        const checkpointLabel = runnerMode ? (gdPracticeMode ? (gdCheckpointReady ? "READY" : "USED") : "OFF") : "OFF";
+        const rankLabel = runnerMode ? (gdBestRank ?? "-") : "-";
+
+        const objectiveLines =
+          levelType === "boss" && isTestingBossLevel
+            ? [
+                "Classic boss pattern enabled.",
+                "Dodge volleys and laser sweeps.",
+                "Burn through boss HP to clear.",
+              ]
+            : levelType === "operative"
+            ? [
+                `Survive 60s: ${Math.max(0, timeRemaining).toFixed(1)}s`,
+                `Energy Cores: ${targetsDestroyed}/${targetsNeeded}`,
+                `Section: ${runnerSection} · Modifier: ${modifierLabel}`,
+                `Checkpoint: ${checkpointLabel} · Laser Clean: ${laserContactCount === 0 ? "YES" : "NO"}`,
+              ]
+            : levelType === "gd"
+            ? [
+                `Section: ${runnerSection}`,
+                `Modifier: ${modifierLabel}`,
+                `Practice Checkpoint: ${checkpointLabel}`,
+                `Best Rank: ${rankLabel}`,
+              ]
+            : intel.objectives.slice(0, 3);
+
+        const hudCommitInterval = ULTRA_SMOOTH_MODE ? 180 : 120;
+        if (time - lastHudCommit > hudCommitInterval) {
+          setHud({
+            score: sessionScore,
+            combo,
+            lives: levelLives,
+            levelLabel: `${planet.name} | L${currentLevel.toString().padStart(2, "0")}`,
+            modeLabel,
+            targetLabel:
+              levelType === "boss"
+                ? `${bossProfile.name} · PHASE ${bossPhase}`
+                : levelType === "operative"
+                ? `${targetsDestroyed}/${targetsNeeded} cores`
+                : `${targetsDestroyed}/${targetsNeeded}`,
+            progress,
+            powerLabel: powerState.label,
+            powerProgress: powerState.progress,
+            sectionLabel: levelType === "boss" ? `PHASE ${bossPhase}` : runnerSection,
+            modifierLabel,
+            modifierProgress,
+            checkpointLabel,
+            bestRankLabel: rankLabel,
+            objectives: objectiveLines,
+            bossPhase,
+            bossHealth,
+            bossName: bossProfile.name,
+            bossColor: bossProfile.color,
+            eyeX: eyeCore.x,
+            eyeY: eyeCore.y,
+            eyeScale: 1 + eyeCore.pulse * 0.2 + eyeCore.burst * 0.26,
+            eyeActive: eyeCore.reveal > 0.02,
+            lightningActive: lightningTimer > 0,
+            lightningHue,
+            lightningIntensity,
+            lightningSpeed,
+            lightningSize,
+            lightningXOffset,
+            isTestingBoss: isTestingBossLevel && levelType === "boss",
+          });
+          lastHudCommit = time;
         }
 
-        const activeBuffs = [];
-        if (hasShield) activeBuffs.push("BARRIER");
-        if (slowMo > 0) activeBuffs.push("TIME FREEZE");
-        if (autoSlicer > 0) activeBuffs.push("AUTO-SLICER");
-        if (multiScore > 0) activeBuffs.push("SCORE MULTIPLIER");
-        if (feverTimer > 0) activeBuffs.push("NEURAL OVERLOAD");
-        if (berserkTimer > 0) activeBuffs.push("BERSERK x10");
-        if (berserkCrashTimer > 0) activeBuffs.push("BERSERK CRASH");
-        if (frenzyTimer > 0) activeBuffs.push("FRENZY SPEED");
-        if (phaseRushStacks > 0) activeBuffs.push(`PHASE RUSH x${phaseRushStacks}`);
-        
-        if (activeBuffs.length > 0) {
-          ctx.fillStyle = planet.color;
-          ctx.font = '10px Rajdhani';
-          ctx.fillText(`[ ${activeBuffs.join(' | ')} ]`, 30, 120);
-        }
-
-        // Fever / Overload meter
-        ctx.fillStyle = '#111';
-        ctx.fillRect(30, H - 28, 220, 5);
-        ctx.fillStyle = feverTimer > 0 ? '#ffd700' : planet.color;
-        ctx.shadowColor = ctx.fillStyle;
-        ctx.shadowBlur = feverTimer > 0 ? 18 : 6;
-        ctx.fillRect(30, H - 28, 220 * (feverTimer > 0 ? Math.max(0, feverTimer / 600) : feverCharge / 100), 5);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#666';
-        ctx.font = '9px Rajdhani';
-        ctx.textAlign = 'left';
-        ctx.fillText(`OVERLOAD ${feverTimer > 0 ? 'ACTIVE' : Math.floor(feverCharge) + '%' } · HP ${levelLives}`, 30, H - 34);
-
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#fff';
-        
-        ctx.font = '10px Rajdhani';
-        ctx.letterSpacing = '3px';
-        ctx.fillText('TARGET SECTOR', W - 30, 40);
-        
-        ctx.font = '20px Orbitron';
-        ctx.letterSpacing = '2px';
-        ctx.fillText(`${planet.name} | L${currentLevel.toString().padStart(2, '0')}`, W - 30, 70);
-        
-        ctx.font = '14px Rajdhani';
-        ctx.letterSpacing = '1px';
-        ctx.fillStyle = '#888';
-        if (levelType === 'boss') ctx.fillText(`TARGET: ${bossProfile.name}`, W - 30, 95);
-        else if (levelType === 'static') ctx.fillText(`TIME: ${Math.max(0, timeRemaining).toFixed(1)}s`, W - 30, 95);
-        else if (levelType === 'chaos_bonus') ctx.fillText(`CHAOS: ${Math.max(0,timeRemaining).toFixed(1)}s | ${targetsDestroyed}/${targetsNeeded}`, W - 30, 95);
-        else if (levelType === 'gd') ctx.fillText(`GD RUN: ${targetsDestroyed}/${targetsNeeded} cubes`, W - 30, 95);
-        else if (levelType === 'snail') ctx.fillText(`CUBE SHOOTER: ${targetsDestroyed}/${targetsNeeded} cubes`, W - 30, 95);
-        else if (levelType === 'chess') ctx.fillText(`NEURAL CHESS: CAPTURE ENEMY CORE`, W - 30, 95);
-        else ctx.fillText(`TARGETS: ${targetsDestroyed} / ${targetsNeeded}`, W - 30, 95);
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.32)";
+        ctx.fillRect(W / 2 - 210, 16, 420, 28);
+        ctx.strokeStyle = "rgba(255,255,255,0.14)";
+        ctx.strokeRect(W / 2 - 210, 16, 420, 28);
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "12px Rajdhani";
+        const intelTitle = intel.title;
+        ctx.fillText(`${intelTitle} · ${modeLabel}`, W / 2, 34);
+        ctx.restore();
       }
 
       ctx.restore();
@@ -2875,11 +3750,13 @@ export default function PlayArea() {
 
     // Click = Blast Shot (if skill unlocked) + GD jump
     const handleClick = (e: MouseEvent | TouchEvent) => {
-      if (levelType === 'gd') { gdJumpQueued = true; return; }
+      if (paused) return;
+      if (levelType === 'gd' || levelType === 'operative') { gdJumpQueued = true; return; }
       const clientX = 'touches' in e ? (e as TouchEvent).changedTouches[0].clientX : (e as MouseEvent).clientX;
       const clientY = 'touches' in e ? (e as TouchEvent).changedTouches[0].clientY : (e as MouseEvent).clientY;
       if (levelType === 'snail') {
-        snailPlayer.targetX = Math.max(W * 0.12 + 28, Math.min(W * 0.88 - 28, clientX));
+        const { left, right } = getSnailBounds();
+        snailPlayer.targetX = Math.max(left + 28, Math.min(right - 28, clientX));
         fireSnailShot();
         return;
       }
@@ -2999,8 +3876,14 @@ export default function PlayArea() {
     // Q/E/R/F spell keys (only if corresponding skill purchased) + Space/↑ for GD jump
     const handleKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
+      if (k === "escape" || k === "p") {
+        paused = !paused;
+        setIsPaused(paused);
+        return;
+      }
+      if (paused) return;
       if (k === ' ' || k === 'arrowup' || k === 'w') {
-        if (levelType === 'gd') { gdJumpQueued = true; e.preventDefault(); return; }
+        if (levelType === 'gd' || levelType === 'operative') { gdJumpQueued = true; e.preventDefault(); return; }
         if (levelType === 'snail') {
           if (k === ' ' || k === 'w' || k === 'arrowup') {
             fireSnailShot();
@@ -3016,12 +3899,14 @@ export default function PlayArea() {
         }
       }
       if ((k === 'arrowleft' || k === 'a') && levelType === 'snail') {
-        snailPlayer.targetX = Math.max(W * 0.12 + 28, snailPlayer.targetX - 64);
+        const { left } = getSnailBounds();
+        snailPlayer.targetX = Math.max(left + 28, snailPlayer.targetX - 64);
         e.preventDefault();
         return;
       }
       if ((k === 'arrowright' || k === 'd') && levelType === 'snail') {
-        snailPlayer.targetX = Math.min(W * 0.88 - 28, snailPlayer.targetX + 64);
+        const { right } = getSnailBounds();
+        snailPlayer.targetX = Math.min(right - 28, snailPlayer.targetX + 64);
         e.preventDefault();
         return;
       }
@@ -3030,6 +3915,11 @@ export default function PlayArea() {
         const curSector = Math.ceil(currentLevel / LEVELS_PER_SECTOR);
         setLevelSelectSector(curSector);
         setShowLevelSelect(prev => !prev);
+        return;
+      }
+      if (k === 'v' && (levelType === 'gd' || levelType === 'operative')) {
+        gdPracticeMode = !gdPracticeMode;
+        spawnText(`PRACTICE ${gdPracticeMode ? "ON" : "OFF"}`, W / 2, H / 2 + 40, gdPracticeMode ? "#7ef0b1" : "#ffaa66", 26);
         return;
       }
       // H = chess HACK (convert adjacent enemy piece, once per game)
@@ -3060,16 +3950,17 @@ export default function PlayArea() {
         spellCooldowns[key] = key === 'q' && skill.overclock ? Math.floor(SPELL_MAX[key] / 2) : SPELL_MAX[key];
         action();
       };
-      if (k === 'q') castSpell('q', 'reflexes', () => { slowMo = getSlowDuration(); spawnText('Q - TIME FREEZE!', W/2, H/2, '#00f2ff', 60); flashes.push({life:0.6,color:'#00f2ff'}); glitchFrames=8; shake=15; });
+      if (k === 'q') castSpell('q', 'reflexes', () => { slowMo = Math.max(slowMo, getSlowDuration()); usedTimeMechanic = true; startPowerCooldown('slow'); spawnText('Q - TIME FREEZE!', W/2, H/2, '#00f2ff', 60); flashes.push({life:0.6,color:'#00f2ff'}); glitchFrames=8; shake=15; });
       if (k === 'e') castSpell('e', 'magnet2',  () => { magnetActive = getMagnetDuration(); spawnText('E - MAGNET!', W/2, H/2, '#ff88ff', 60); flashes.push({life:0.6,color:'#ff88ff'}); shake=12; });
       if (k === 'r') castSpell('r', 'shield',   () => { shieldActive = true; spawnText('R - SHIELD!', W/2, H/2, '#00aaff', 60); flashes.push({life:0.6,color:'#00aaff'}); shake=10; });
       if (k === 'f') castSpell('f', 'blast',    () => { fireBlast(mouse.x, mouse.y); });
     };
     window.addEventListener('keydown', handleKey);
     
+    const touchOptions: AddEventListenerOptions = { passive: false };
     window.addEventListener('mousemove', handleMove);
-    window.addEventListener('touchmove', handleMove, { passive: false });
-    window.addEventListener('touchstart', handleMove, { passive: false });
+    window.addEventListener('touchmove', handleMove, touchOptions);
+    window.addEventListener('touchstart', handleMove, touchOptions);
 
     const handleResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
     window.addEventListener('resize', handleResize);
@@ -3083,8 +3974,8 @@ export default function PlayArea() {
       cancelAnimationFrame(animationFrameId);
       clearTimeout(spawnTimeoutId);
       window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('touchmove', handleMove);
-      window.removeEventListener('touchstart', handleMove);
+      window.removeEventListener('touchmove', handleMove, touchOptions);
+      window.removeEventListener('touchstart', handleMove, touchOptions);
       window.removeEventListener('click', handleClick);
       window.removeEventListener('touchend', handleClick);
       window.removeEventListener('keydown', handleKey);
@@ -3094,21 +3985,80 @@ export default function PlayArea() {
 
   if (!mounted || !username) return null;
 
-  // Derive sector for background
-  const LEVELS_PER_SECTOR_BG = 11;
-  const sectorIdForBg = Math.ceil(currentLevel / LEVELS_PER_SECTOR_BG);
-  const levelInSectorForBg = ((currentLevel - 1) % LEVELS_PER_SECTOR_BG) + 1;
+  const currentLevelInSector = ((currentLevel - 1) % LEVELS_PER_SECTOR) + 1;
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#050505] touch-none cursor-crosshair">
-      {/* Animated sector background */}
-      <LevelBackground sectorId={sectorIdForBg} levelInSector={levelInSectorForBg} />
+      {/* Static background for stable frame pacing */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(1200px 700px at 50% 22%, rgba(255,70,70,0.08), transparent 55%), linear-gradient(180deg, #070707 0%, #040404 100%)",
+        }}
+      />
       <canvas ref={canvasRef} className="absolute inset-0 z-10" />
+
+      {bossIntro && !isGameOver && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none">
+          <div className="border border-red-400/45 bg-black/65 px-8 py-5 backdrop-blur-sm text-center">
+            <div className="font-mono text-[10px] tracking-[0.35em] uppercase text-red-300 mb-2">Boss Incoming</div>
+            <div className="font-display text-3xl tracking-[0.22em] uppercase text-white">{bossIntro}</div>
+          </div>
+        </div>
+      )}
+
+      {!isGameOver && (
+        <div className="absolute top-4 left-4 right-4 z-30 pointer-events-none">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+            <div className="border border-white/15 bg-black/45 backdrop-blur-sm px-3 py-2 min-w-0">
+              <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-gray-400">Operational Metrics</div>
+              <div className="font-mono text-lg text-white tracking-[0.08em] truncate">{hud.score.toString().padStart(6, "0")}</div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-gray-400">Combo x{hud.combo} · HP {hud.lives}</div>
+            </div>
+
+            <div className="border border-white/15 bg-black/45 backdrop-blur-sm px-3 py-2 min-w-0">
+              <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-gray-400 truncate">{hud.levelLabel}</div>
+              <div className="font-mono text-xs uppercase tracking-[0.2em] text-white truncate">{hud.modeLabel}</div>
+              <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-200/85 truncate">{hud.sectionLabel}</div>
+              <div className="mt-1 h-1.5 bg-white/10 overflow-hidden">
+                <div className="h-full bg-white/80" style={{ width: `${Math.max(2, hud.progress * 100)}%` }} />
+              </div>
+            </div>
+
+            <div className="border border-white/15 bg-black/45 backdrop-blur-sm px-3 py-2 min-w-0">
+              <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-gray-400">Power Status</div>
+              <div className="font-mono text-xs uppercase tracking-[0.2em] text-white truncate">{hud.powerLabel}</div>
+              <div className="mt-1 h-1.5 bg-white/10 overflow-hidden">
+                <div className="h-full bg-cyan-300/90" style={{ width: `${Math.max(0, hud.powerProgress * 100)}%` }} />
+              </div>
+              <div className="mt-1 flex items-center justify-between">
+                <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-amber-200/90 truncate">{hud.modifierLabel}</div>
+                <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-gray-400">CP {hud.checkpointLabel}</div>
+              </div>
+              <div className="mt-1 h-1 bg-white/10 overflow-hidden">
+                <div className="h-full bg-amber-300/90" style={{ width: `${Math.max(0, hud.modifierProgress * 100)}%` }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-2 border border-white/10 bg-black/40 backdrop-blur-sm px-3 py-2 max-w-full md:max-w-[42rem]">
+            <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-gray-400 mb-1">Objectives</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+              {hud.objectives.map((line, idx) => (
+                <div key={`${line}-${idx}`} className="font-mono text-[10px] text-gray-200 truncate">
+                  {line}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Return Button */}
       <button 
         onClick={() => router.push("/hub")}
-        className="absolute top-6 left-1/2 -translate-x-1/2 z-20 font-mono text-[10px] uppercase tracking-[0.3em] text-gray-500 hover:text-white transition-colors"
+        className="absolute bottom-6 left-6 z-20 font-mono text-[10px] uppercase tracking-[0.3em] text-gray-500 hover:text-white transition-colors"
       >
         [ ABORT MISSION ]
       </button>
@@ -3121,10 +4071,15 @@ export default function PlayArea() {
             setLevelSelectSector(curSector);
             setShowLevelSelect(prev => !prev);
           }}
-          className="absolute top-6 right-6 z-20 font-mono text-[9px] uppercase tracking-[0.25em] text-gray-600 hover:text-white transition-colors border border-gray-800 hover:border-gray-600 px-3 py-1.5"
+          className="absolute top-[132px] right-4 z-20 font-mono text-[9px] uppercase tracking-[0.25em] text-gray-600 hover:text-white transition-colors border border-gray-800 hover:border-gray-600 px-3 py-1.5"
         >
           MAP [M]
         </button>
+      )}
+      {!isGameOver && (
+        <div className="absolute top-[168px] right-4 z-20 font-mono text-[9px] uppercase tracking-[0.2em] text-gray-500 border border-gray-900 bg-black/45 px-3 py-1 pointer-events-none">
+          Practice [V] · CP {hud.checkpointLabel} · Rank {hud.bestRankLabel}
+        </div>
       )}
 
       {/* Auto-advance Level Clear Banner */}
@@ -3139,9 +4094,28 @@ export default function PlayArea() {
           </div>
         </div>
       )}
+
+      {isPaused && !isGameOver && (
+        <div className="absolute inset-0 z-[45] flex items-center justify-center bg-black/55 backdrop-blur-[2px]">
+          <div className="border border-white/20 bg-black/70 px-8 py-7 text-center">
+            <div className="font-display text-3xl tracking-[0.25em] text-white uppercase">Paused</div>
+            <div className="font-mono text-[10px] tracking-[0.25em] text-gray-400 uppercase mt-2">
+              Press P or ESC to resume
+            </div>
+          </div>
+        </div>
+      )}
+
+      {achievementToast && (
+        <div className="absolute top-4 right-4 z-50 border border-green-400/40 bg-black/75 backdrop-blur px-4 py-3">
+          <div className="font-mono text-[9px] uppercase tracking-[0.25em] text-green-300">Achievement Unlocked</div>
+          <div className="font-mono text-xs uppercase tracking-[0.2em] text-white mt-1">{achievementToast.name}</div>
+          <div className="font-mono text-[10px] text-gray-400 mt-0.5">{achievementToast.description}</div>
+        </div>
+      )}
       {/* ── SPELL BAR (Q/E/R/F) bottom center — only usable if skill purchased ── */}
       {!isGameOver && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-end gap-3 pointer-events-none">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 hidden sm:flex items-end gap-3 pointer-events-none">
           {[
             { key:'Q', label:'FREEZE',  color:'#00f2ff', skill:'reflexes', desc:'Reflexes' },
             { key:'E', label:'MAGNET',  color:'#ff88ff', skill:'magnet2',  desc:'Magnet+' },
@@ -3174,14 +4148,14 @@ export default function PlayArea() {
 
       {/* ── PASSIVE SKILLS (top right mini) ── */}
       {!isGameOver && stats.skills.length > 0 && (
-        <div className="absolute top-20 right-4 z-20 flex flex-col gap-1 pointer-events-none">
-          {stats.skills.slice(0,4).map(sk => (
+        <div className="absolute top-40 right-4 z-20 hidden xl:flex flex-col gap-1 pointer-events-none">
+          {stats.skills.slice(0,2).map(sk => (
             <div key={sk} className="font-mono text-[8px] tracking-widest text-gray-600 uppercase px-2 py-0.5 border border-gray-900 bg-black/50">
               ACTIVE {sk}
             </div>
           ))}
-          {stats.skills.length > 4 && (
-            <div className="font-mono text-[8px] text-gray-700">+{stats.skills.length - 4} more</div>
+          {stats.skills.length > 2 && (
+            <div className="font-mono text-[8px] text-gray-700">+{stats.skills.length - 2} more</div>
           )}
         </div>
       )}
@@ -3192,26 +4166,47 @@ export default function PlayArea() {
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm p-4">
           <div className="border border-gray-800 bg-[#050505] p-8 w-full max-w-2xl">
             <div className="font-mono text-[9px] tracking-[0.5em] text-gray-600 uppercase mb-2">
-              {levelInSectorForBg === 11 ? 'Sector Cleared' : 'Level Cleared'}
+              {currentLevelInSector === 11 ? 'Sector Cleared' : 'Level Cleared'}
             </div>
             <div className="font-mono text-2xl tracking-[0.2em] text-white uppercase mb-1">
-              {levelSelectSector === 99 ? 'LUDILO BONUS' : PLANETS[levelSelectSector - 1]?.name ?? `Sector ${levelSelectSector}`}
+              {levelSelectSector === TESTING_BOSS_SECTOR_ID
+                ? "TESTING BOSS"
+                : levelSelectSector === 99
+                ? "LUDILO BONUS"
+                : PLANETS[levelSelectSector - 1]?.name ?? `Sector ${levelSelectSector}`}
             </div>
             <div className="font-mono text-[10px] text-gray-600 mb-6">Izaberi level za replay ili nastavi dalje</div>
             <div className="grid grid-cols-4 gap-2 mb-8">
-              {Array.from({length: LEVELS_PER_SECTOR}, (_, i) => {
-                const lvl = (levelSelectSector - 1) * LEVELS_PER_SECTOR + i + 1;
+              {Array.from({length: levelSelectSector === TESTING_BOSS_SECTOR_ID ? 1 : LEVELS_PER_SECTOR}, (_, i) => {
+                const lvl = levelSelectSector === TESTING_BOSS_SECTOR_ID
+                  ? TESTING_BOSS_LEVEL
+                  : (levelSelectSector - 1) * LEVELS_PER_SECTOR + i + 1;
                 const isCompleted = (stats.completedLevels ?? []).includes(lvl);
-                const isReachable = levelSelectSector === 99 || lvl <= (stats.maxLevelReached ?? 1) || lvl <= currentLevel;
+                const isReachable =
+                  levelSelectSector === TESTING_BOSS_SECTOR_ID
+                    ? true
+                    : levelSelectSector === 99 || lvl <= (stats.maxLevelReached ?? 1) || lvl <= currentLevel;
                 const isCurrent = lvl === currentLevel;
-                const isBoss = i === 10;
-                const isChaosBonus = i === 0 && levelSelectSector > 1;
-                const isSnail = i === 6 || i === 9;
-                const col = levelSelectSector === 99 ? '#ff00a2' : PLANETS[levelSelectSector - 1]?.color ?? '#fff';
-                const levelBadge = levelSelectSector === 99 ? `B${i + 1}` : isBoss ? 'BOSS' : `L${i+1}`;
-                const typeLabel = levelSelectSector === 99
+                const isBoss = levelSelectSector === TESTING_BOSS_SECTOR_ID || i === 10;
+                const col =
+                  levelSelectSector === TESTING_BOSS_SECTOR_ID
+                    ? "#ef4444"
+                    : levelSelectSector === 99
+                    ? "#ff00a2"
+                    : PLANETS[levelSelectSector - 1]?.color ?? "#fff";
+                const levelBadge = levelSelectSector === TESTING_BOSS_SECTOR_ID
+                  ? "T1"
+                  : levelSelectSector === 99
+                  ? `B${i + 1}`
+                  : isBoss
+                  ? 'BOSS'
+                  : `L${i+1}`;
+                const typeLabel = levelSelectSector === TESTING_BOSS_SECTOR_ID
+                  ? "EVIL EYE TEST"
+                  : levelSelectSector === 99
                   ? (i % 2 === 0 ? 'LUDILO GD' : 'CUBE SHOOTER')
-                  : isBoss ? 'BOSS' : isChaosBonus ? 'CHAOS' : isSnail ? 'CUBE SHOOTER' : i % 3 === 2 ? 'GD RUN' : i % 2 === 1 ? 'GRID' : 'NINJA';
+                  : isBoss ? 'BOSS'
+                  : getLevelIntel(lvl, i + 1).title;
                 return (
                   <button key={lvl}
                     disabled={!isReachable}
@@ -3247,6 +4242,7 @@ export default function PlayArea() {
                 onClick={() => {
                   setShowLevelSelect(false);
                   setCurrentLevel(prev => {
+                    if (levelSelectSector === TESTING_BOSS_SECTOR_ID) return TESTING_BOSS_LEVEL;
                     const prevSector = Math.ceil(prev / LEVELS_PER_SECTOR);
                     if (prevSector !== 99) return prev + 1;
                     const firstBonusLevel = (99 - 1) * LEVELS_PER_SECTOR + 1;
@@ -3307,6 +4303,7 @@ export default function PlayArea() {
                      // Increment BOTH — restartKey guarantees useEffect re-runs even if
                      // React batches currentLevel change with other state updates
                      setCurrentLevel(prev => {
+                       if (Math.ceil(prev / LEVELS_PER_SECTOR) === TESTING_BOSS_SECTOR_ID) return TESTING_BOSS_LEVEL;
                        const prevSector = Math.ceil(prev / LEVELS_PER_SECTOR);
                        if (prevSector !== 99) return prev + 1;
                        const firstBonusLevel = (99 - 1) * LEVELS_PER_SECTOR + 1;

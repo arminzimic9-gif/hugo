@@ -8,6 +8,7 @@ const SECTOR_COLORS: Record<number, { primary: string; secondary: string; rgb: s
   4: { primary: "#00ff88", secondary: "#004422", rgb: "0,255,136" },
   5: { primary: "#ffffff", secondary: "#222222", rgb: "255,255,255" },
   99: { primary: "#ff00a2", secondary: "#44002b", rgb: "255,0,162" },
+  100: { primary: "#ef4444", secondary: "#3a0606", rgb: "239,68,68" },
 };
 
 interface LevelBackgroundProps {
