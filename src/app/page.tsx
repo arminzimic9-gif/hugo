@@ -1,24 +1,24 @@
 "use client";
 
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useGameStore } from "@/store/gameStore";
 import { ACHIEVEMENTS } from "@/data/achievements";
+import TelemetryRing from "@/components/game/TelemetryRing";
+import { HEROES, HERO_ARCHETYPES, type HeroArchetype } from "@/data/heroes";
 
-type Archetype = "vanguard" | "spectre" | "vector";
-
-const HERO_STYLES: Record<Archetype, { label: string; accent: string; lore: string }> = {
-  vanguard: { label: "VANGUARD", accent: "#00f2ff", lore: "Brzi front-runner sa stabilnom kontrolom." },
-  spectre: { label: "SPECTRE", accent: "#ff1a24", lore: "Agresivan stil sa visokim rizikom i tempom." },
-  vector: { label: "VECTOR", accent: "#00ff88", lore: "Precizan operative fokusiran na putanju." },
-};
+const OperativeModel = dynamic(() => import("@/components/game/OperativeModel"), {
+  ssr: false,
+});
 
 export default function LoginTerminal() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [stage, setStage] = useState<"identity" | "character">("identity");
-  const [archetype, setArchetype] = useState<Archetype>("vanguard");
+  const [archetype, setArchetype] = useState<HeroArchetype>("vanguard");
   const [codename, setCodename] = useState("NEON");
   const { login, username, setHeroProfile, stats } = useGameStore();
   const router = useRouter();
@@ -248,7 +248,7 @@ export default function LoginTerminal() {
   const handleStartMission = () => {
     if (!input.trim()) return;
     setLoading(true);
-    const style = HERO_STYLES[archetype];
+    const style = HEROES[archetype];
     setHeroProfile({
       codename: (codename.trim() || input.trim()).toUpperCase().slice(0, 12),
       archetype,
@@ -282,25 +282,25 @@ export default function LoginTerminal() {
         }}
       />
 
-      <div className="absolute top-6 right-6 z-30">
+      <div className={`absolute right-3 top-3 z-30 sm:right-6 sm:top-6 ${stage === "character" ? "hidden sm:block" : ""}`}>
         <button
           onClick={() => setShowAchievements(true)}
-          className="border border-gray-700 bg-black/60 px-4 py-2 font-mono text-[10px] tracking-[0.25em] text-gray-300 uppercase hover:text-white hover:border-gray-500 transition-colors"
+          className="border border-gray-700 bg-black/75 px-2.5 py-1.5 font-mono text-[7px] uppercase tracking-normal text-gray-300 transition-colors hover:border-gray-500 hover:text-white sm:px-4 sm:py-2 sm:text-[10px] sm:tracking-[0.25em]"
         >
           Achievements ({unlockedAchievements.length}/{ACHIEVEMENTS.length})
         </button>
       </div>
 
-      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center">
-        <div className="flex flex-col items-center gap-10 w-full max-w-xl px-6">
+      <div className={`absolute inset-0 z-20 flex flex-col items-center overflow-y-auto px-4 md:justify-center md:overflow-hidden md:p-0 ${stage === "character" ? "pb-4 pt-4" : "pb-8 pt-16"}`}>
+        <div className={`flex w-full max-w-xl flex-col items-center sm:px-6 md:gap-10 ${stage === "character" ? "gap-3" : "gap-6"}`}>
           <div className="text-center">
             <h1
-              className="font-display text-6xl md:text-7xl text-white tracking-[0.25em] uppercase"
+              className={`font-display uppercase text-white sm:text-6xl sm:tracking-[0.25em] md:text-7xl ${stage === "character" ? "text-4xl tracking-[0.16em]" : "text-5xl tracking-[0.18em]"}`}
               style={{ textShadow: "0 0 40px rgba(232,0,10,0.8), 0 0 80px rgba(232,0,10,0.4)" }}
             >
               HUGO
             </h1>
-            <p className="font-mono text-xs tracking-[0.5em] text-red-500 uppercase mt-2">Neural Overload</p>
+            <p className={`font-mono uppercase tracking-[0.5em] text-red-500 ${stage === "character" ? "mt-1 text-[9px]" : "mt-2 text-xs"}`}>Neural Overload</p>
           </div>
 
           {stage === "identity" ? (
@@ -331,31 +331,55 @@ export default function LoginTerminal() {
               </button>
             </form>
           ) : (
-            <div className="w-full max-w-2xl border border-gray-700 bg-black/60 backdrop-blur px-6 py-6">
+            <div className="w-full max-w-3xl border border-gray-700 bg-black/60 px-5 py-5 backdrop-blur md:px-6 md:py-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                 <div className="border border-gray-800 p-4">
                   <div className="font-mono text-[9px] uppercase tracking-[0.3em] text-gray-500 mb-2">Character Preview</div>
-                  <div className="h-52 border border-gray-900 bg-[#060606] flex items-center justify-center relative overflow-hidden">
-                    <div
-                      className="absolute w-40 h-40 rounded-full blur-3xl opacity-30"
-                      style={{ background: HERO_STYLES[archetype].accent }}
+                  <div
+                    className="relative h-64 overflow-hidden border bg-[#060809]"
+                    style={{ borderColor: `${HEROES[archetype].accent}55` }}
+                  >
+                    <TelemetryRing
+                      key={`ring-${archetype}`}
+                      compact
+                      accent={HEROES[archetype].accent}
+                      className="left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2"
                     />
-                    <div className="relative flex flex-col items-center gap-3">
-                      <div
-                        className="w-20 h-20 border-2"
-                        style={{
-                          borderColor: HERO_STYLES[archetype].accent,
-                          boxShadow: `0 0 30px ${HERO_STYLES[archetype].accent}66`,
-                        }}
+                    {HEROES[archetype].model ? (
+                      <OperativeModel
+                        key={archetype}
+                        modelUrl={HEROES[archetype].model}
+                        accent={HEROES[archetype].accent}
+                        label={HEROES[archetype].label}
+                        fallbackImage={HEROES[archetype].image}
+                        className="operative-signal-in"
                       />
-                      <div
-                        className="font-display text-sm tracking-[0.2em]"
-                        style={{ color: HERO_STYLES[archetype].accent }}
-                      >
-                        {HERO_STYLES[archetype].label}
+                    ) : (
+                      <Image
+                        key={archetype}
+                        src={HEROES[archetype].image}
+                        alt={`${HEROES[archetype].label} operative preview`}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 320px"
+                        className="operative-signal-in object-cover object-center"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-black/18" />
+                    <div className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-black/75 px-3 py-2 backdrop-blur-sm">
+                      <div className="flex items-end justify-between gap-3">
+                        <div>
+                          <div className="font-display text-xs tracking-[0.2em]" style={{ color: HEROES[archetype].accent }}>
+                            {HEROES[archetype].label}
+                          </div>
+                          <div className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-gray-300">{codename}</div>
+                        </div>
+                        <div className="text-right font-mono text-[7px] uppercase tracking-[0.18em] text-gray-500">
+                          <div>{HEROES[archetype].chassis}</div>
+                          <div>{HEROES[archetype].role}</div>
+                        </div>
                       </div>
-                      <div className="font-mono text-[10px] text-gray-300 tracking-[0.2em] uppercase">{codename}</div>
                     </div>
+                    <span className="absolute inset-y-0 left-0 w-px" style={{ background: HEROES[archetype].accent }} />
                   </div>
                 </div>
 
@@ -373,23 +397,30 @@ export default function LoginTerminal() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">
-                    {Object.entries(HERO_STYLES).map(([key, style]) => (
+                    {HERO_ARCHETYPES.map((key) => {
+                      const style = HEROES[key];
+                      return (
                       <button
                         key={key}
-                        onClick={() => setArchetype(key as Archetype)}
-                        className={`border px-2 py-3 transition-colors ${
+                        onClick={() => setArchetype(key)}
+                        className={`group overflow-hidden border text-left transition-colors ${
                           archetype === key ? "border-white bg-white/10" : "border-gray-800 bg-black/30 hover:border-gray-600"
                         }`}
                       >
-                        <div className="font-mono text-[9px] tracking-[0.15em]" style={{ color: style.accent }}>
+                        <div className="relative h-16 overflow-hidden bg-black">
+                          <Image src={style.image} alt="" fill sizes="120px" className="object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                          <div className="absolute inset-0 bg-black/18" />
+                        </div>
+                        <div className="px-2 py-2 font-mono text-[8px] tracking-[0.1em]" style={{ color: style.accent }}>
                           {style.label}
                         </div>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="font-mono text-[10px] text-gray-400 leading-relaxed min-h-10">
-                    {HERO_STYLES[archetype].lore}
+                    {HEROES[archetype].lore}
                   </div>
 
                   <div className="flex gap-3 pt-2">

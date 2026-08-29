@@ -1,5 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+  CRAFTING_RECIPES_BY_ID,
+  createEmptyMaterialInventory,
+  type CraftingRecipeId,
+  type MaterialId,
+  type MaterialInventory,
+} from '@/data/crafting';
 
 export interface PlayerStats {
   level: number;
@@ -12,6 +19,8 @@ export interface PlayerStats {
   ownedCursors: number[];
   activeCursorId: number;
   achievements: string[];
+  materials: MaterialInventory;
+  craftedGear: CraftingRecipeId[];
 }
 
 export interface HeroProfile {
@@ -66,6 +75,8 @@ export interface GameState {
   logout: () => void;
   addXp: (amount: number) => void;
   addCredits: (amount: number) => void;
+  addMaterials: (drops: Partial<Record<MaterialId, number>>) => void;
+  craftRecipe: (recipeId: CraftingRecipeId) => boolean;
   unlockSkill: (skillId: string, cost: number) => boolean;
   unlockAchievement: (achievementId: string) => boolean;
   completeLevel: (levelCompleted: number) => void;
@@ -84,23 +95,53 @@ export interface GameState {
 }
 
 const XP_PER_LEVEL = 1000;
+const BASE_PLAYER_STATS: PlayerStats = {
+  level: 1,
+  xp: 0,
+  credits: 0,
+  skills: [],
+  unlockedSectors: [1],
+  maxLevelReached: 1,
+  completedLevels: [],
+  ownedCursors: [1],
+  activeCursorId: 1,
+  achievements: [],
+  materials: createEmptyMaterialInventory(),
+  craftedGear: [],
+};
+
+const normalizeMaterials = (materials?: Partial<MaterialInventory>): MaterialInventory => {
+  const out = createEmptyMaterialInventory();
+  if (!materials) return out;
+  (Object.keys(out) as MaterialId[]).forEach((id) => {
+    out[id] = Math.max(0, Math.floor(materials[id] ?? 0));
+  });
+  return out;
+};
+
+const normalizeStats = (stats?: Partial<PlayerStats>): PlayerStats => ({
+  level: Math.max(1, Math.floor(stats?.level ?? BASE_PLAYER_STATS.level)),
+  xp: Math.max(0, Math.floor(stats?.xp ?? BASE_PLAYER_STATS.xp)),
+  credits: Math.max(0, Math.floor(stats?.credits ?? BASE_PLAYER_STATS.credits)),
+  skills: Array.isArray(stats?.skills) ? stats.skills : [],
+  unlockedSectors:
+    Array.isArray(stats?.unlockedSectors) && stats.unlockedSectors.length > 0
+      ? stats.unlockedSectors
+      : [1],
+  maxLevelReached: Math.max(1, Math.floor(stats?.maxLevelReached ?? BASE_PLAYER_STATS.maxLevelReached)),
+  completedLevels: Array.isArray(stats?.completedLevels) ? stats.completedLevels : [],
+  ownedCursors: Array.isArray(stats?.ownedCursors) && stats.ownedCursors.length > 0 ? stats.ownedCursors : [1],
+  activeCursorId: Math.max(1, Math.floor(stats?.activeCursorId ?? 1)),
+  achievements: Array.isArray(stats?.achievements) ? stats.achievements : [],
+  materials: normalizeMaterials(stats?.materials),
+  craftedGear: Array.isArray(stats?.craftedGear) ? stats.craftedGear : [],
+});
 
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       username: null,
-      stats: {
-        level: 1,
-        xp: 0,
-        credits: 0,
-        skills: [],
-        unlockedSectors: [1],
-        maxLevelReached: 1,
-        completedLevels: [],
-        ownedCursors: [1], // Neon Pulse by default
-        activeCursorId: 1,
-        achievements: [],
-      },
+      stats: normalizeStats(BASE_PLAYER_STATS),
       hero: {
         codename: "NEON",
         archetype: "vanguard",
@@ -165,6 +206,44 @@ export const useGameStore = create<GameState>()(
       addCredits: (amount) => set((state) => ({
         stats: { ...state.stats, credits: state.stats.credits + amount }
       })),
+
+      addMaterials: (drops) =>
+        set((state) => {
+          const nextMaterials = { ...normalizeMaterials(state.stats.materials) };
+          (Object.entries(drops) as [MaterialId, number | undefined][]).forEach(([id, amount]) => {
+            const gain = Math.max(0, Math.floor(amount ?? 0));
+            if (!gain) return;
+            nextMaterials[id] = (nextMaterials[id] ?? 0) + gain;
+          });
+          return {
+            stats: { ...state.stats, materials: nextMaterials },
+          };
+        }),
+
+      craftRecipe: (recipeId) => {
+        const state = get();
+        const recipe = CRAFTING_RECIPES_BY_ID[recipeId];
+        if (!recipe) return false;
+        if ((state.stats.craftedGear ?? []).includes(recipeId)) return false;
+        if (state.stats.level < recipe.unlockLevel) return false;
+        const materials = normalizeMaterials(state.stats.materials);
+        const hasAll = recipe.required.every((id) => (materials[id] ?? 0) > 0);
+        if (!hasAll) return false;
+        set((s) => {
+          const nextMaterials = normalizeMaterials(s.stats.materials);
+          recipe.required.forEach((id) => {
+            nextMaterials[id] = Math.max(0, nextMaterials[id] - 1);
+          });
+          return {
+            stats: {
+              ...s.stats,
+              materials: nextMaterials,
+              craftedGear: [...new Set([...(s.stats.craftedGear ?? []), recipeId])],
+            },
+          };
+        });
+        return true;
+      },
       
       unlockSkill: (skillId, cost) => {
         const state = get();
@@ -230,6 +309,18 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: 'hugo-neural-storage',
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState as Partial<GameState>) ?? {};
+        return {
+          ...currentState,
+          ...persisted,
+          stats: normalizeStats(persisted.stats),
+          hero: {
+            ...currentState.hero,
+            ...(persisted.hero ?? {}),
+          },
+        };
+      },
       partialize: (state) => ({ 
         username: state.username, 
         stats: state.stats,

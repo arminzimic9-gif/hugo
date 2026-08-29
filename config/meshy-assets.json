@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "assets/originals/meshy",
+  "runtimeRoot": "public/models",
+  "policy": {
+    "preserveOriginals": true,
+    "haltHttpStatuses": [402, 429],
+    "mobileOptimization": false
+  },
+  "imageTo3dDefaults": {
+    "model_type": "smart-topology",
+    "ai_model": "meshy-t2",
+    "target_polycount": 15000,
+    "should_texture": true,
+    "enable_pbr": true,
+    "texture_resolution": "2k",
+    "pose_mode": "a-pose",
+    "auto_size": true,
+    "origin_at": "bottom",
+    "target_formats": ["glb"],
+    "alpha_thumbnail": true,
+    "multi_view_thumbnails": true
+  },
+  "batches": {
+    "operators": {
+      "creditLimit": 45,
+      "assets": [
+        {
+          "id": "vanguard",
+          "label": "VANGUARD",
+          "reference": "assets/originals/imported/operators/vanguard.png",
+          "runtime": "public/models/operators/vanguard.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "spectre",
+          "label": "SPECTRE",
+          "reference": "assets/originals/imported/operators/spectre.png",
+          "runtime": "public/models/operators/spectre-textured.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "vector",
+          "label": "VECTOR",
+          "reference": "assets/originals/imported/operators/vector.png",
+          "runtime": "public/models/operators/vector.glb",
+          "expectedCredits": 15
+        }
+      ]
+    }
+  },
+  "roadmap": {
+    "keepCurrent2d": [
+      "arena-drone",
+      "arena-heavy",
+      "arena-hunter",
+      "arena-elite"
+    ],
+    "environmentKit": [
+      "cyber-floor-tile",
+      "cyber-wall-segment",
+      "transit-barrier",
+      "neon-pylon",
+      "reactor-tower",
+      "relay-tower",
+      "cargo-container",
+      "extraction-gate",
+      "bridge-ramp"
+    ],
+    "gameplayProps": [
+      "spike-cluster",
+      "laser-emitter",
+      "hazard-mine",
+      "data-core",
+      "shield-module",
+      "time-crystal",
+      "energy-reactor"
+    ],
+    "bosses": [
+      "cyber-sentinel",
+      "magma-forge",
+      "void-archon",
+      "quantum-mirror",
+      "omega-firewall",
+      "ludilo-core",
+      "evil-eye-overseer"
+    ]
+  }
+}

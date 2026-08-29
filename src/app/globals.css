@@ -90,7 +90,10 @@ body {
   background: rgba(0, 0, 0, 0);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--hitman-red);
+  background: rgba(103, 232, 249, 0.34);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(103, 232, 249, 0.62);
 }
 
 /* Hitman-style target crosshair class */
@@ -130,7 +133,7 @@ body.game-active {
 
 .app-scroll {
   scrollbar-width: thin;
-  scrollbar-color: var(--hitman-red) transparent;
+  scrollbar-color: rgba(103, 232, 249, 0.34) transparent;
 }
 
 .lightning-overlay {
@@ -140,4 +143,96 @@ body.game-active {
   pointer-events: none;
   mix-blend-mode: screen;
   background: transparent;
+}
+
+@keyframes telemetryOrbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes operativeSignalIn {
+  0% { opacity: 0; transform: translate3d(10px, 0, 0); filter: contrast(1.45) saturate(0.3); }
+  18% { opacity: 0.78; transform: translate3d(-3px, 0, 0); filter: contrast(1.25) saturate(1.35); }
+  31% { opacity: 0.4; transform: translate3d(2px, 0, 0); }
+  48% { opacity: 0.92; transform: translate3d(-1px, 0, 0); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); filter: none; }
+}
+
+.telemetry-ring {
+  --telemetry-accent: #67e8f9;
+  position: absolute;
+  width: min(54vw, 520px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  color: var(--telemetry-accent);
+  opacity: 0.34;
+  pointer-events: none;
+}
+
+.telemetry-ring-compact {
+  width: min(72vw, 260px);
+  opacity: 0.38;
+}
+
+.telemetry-ring-rotor {
+  position: absolute;
+  inset: 0;
+  animation: telemetryOrbit 32s linear infinite;
+  will-change: transform;
+}
+
+.telemetry-ring-compact .telemetry-ring-rotor {
+  animation-duration: 24s;
+}
+
+.telemetry-ring-orbit {
+  position: absolute;
+  inset: 5%;
+  border: 1px solid color-mix(in srgb, var(--telemetry-accent) 38%, transparent);
+  border-radius: 50%;
+  clip-path: polygon(0 0, 48% 0, 48% 4%, 100% 4%, 100% 100%, 53% 100%, 53% 96%, 0 96%);
+}
+
+.telemetry-ring-orbit-inner {
+  inset: 19%;
+  opacity: 0.42;
+  border-style: dashed;
+}
+
+.telemetry-ring-mark {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font: 500 7px/1 var(--font-geist-mono), monospace;
+  letter-spacing: 0;
+  text-shadow: 0 0 8px currentColor;
+}
+
+.telemetry-ring-axis {
+  position: absolute;
+  background: color-mix(in srgb, var(--telemetry-accent) 22%, transparent);
+}
+
+.telemetry-ring-axis-x {
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  height: 1px;
+}
+
+.telemetry-ring-axis-y {
+  bottom: 8%;
+  left: 50%;
+  top: 8%;
+  width: 1px;
+}
+
+.operative-signal-in {
+  animation: operativeSignalIn 520ms steps(2, end) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .telemetry-ring,
+  .telemetry-ring-rotor,
+  .operative-signal-in {
+    animation: none;
+  }
 }

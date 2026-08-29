@@ -45,3 +45,8 @@ node_modules/
 out/
 build/
 .DS_Store
+
+# Local master 3D exports can be very large. Keep the manifest and pipeline in
+# Git; store production originals locally until Git LFS is introduced.
+/assets/originals/meshy/
+/assets/originals/imported/

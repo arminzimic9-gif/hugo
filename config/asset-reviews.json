@@ -1,0 +1,22 @@
+{
+  "operators": {
+    "vanguard": {
+      "taskId": "01a04c8c-77e8-74db-a9af-1fdf750d69f8",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Front, side, and back previews are clean enough for the unrigged hub preview."
+    },
+    "spectre": {
+      "taskId": "01a04c8e-e2fb-74b6-8a6d-0bba65335593",
+      "status": "rejected",
+      "credits": 15,
+      "notes": "Thin geometry bridges connect the arms and legs. Keep the supplied STL runtime model instead."
+    },
+    "vector": {
+      "taskId": "01a04c91-80b9-73db-8275-0bf520229b69",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Front, side, and back previews are clean enough for the unrigged hub preview."
+    }
+  }
+}

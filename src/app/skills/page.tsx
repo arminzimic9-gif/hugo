@@ -6,9 +6,15 @@ import {
   Crosshair, Zap, Shield, Clock, Magnet, Star, Lock,
   ChevronLeft, ZoomIn, ZoomOut, RefreshCw, Target,
   Swords, Activity, Cpu, Eye, Flame, Atom, Radio,
-  Maximize, Layers, Wind, Battery
+  Maximize, Layers, Wind, Battery, Hammer, Gem, Check
 } from "lucide-react";
 import NeuralBackground from "@/components/NeuralBackground";
+import {
+  CRAFTING_RECIPES,
+  MATERIALS_BY_ID,
+  createEmptyMaterialInventory,
+  getMissingMaterialIds,
+} from "@/data/crafting";
 
 /* ─── SKILL DEFINITIONS ────────────────────────────────────────────────── */
 const NODES = [
@@ -87,11 +93,13 @@ const SVG_W = 2000, SVG_H = 2000;
 /* ─── COMPONENT ─────────────────────────────────────────────────────────── */
 export default function SkillsPage() {
   const router = useRouter();
-  const { stats, unlockSkill, username } = useGameStore();
+  const { stats, unlockSkill, craftRecipe, username } = useGameStore();
   const [mounted, setMounted] = useState(false);
   const [hovered, setHovered]   = useState<string|null>(null);
   const [flash, setFlash]       = useState<string|null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [craftNotice, setCraftNotice] = useState<string | null>(null);
+  const [selectedCraftId, setSelectedCraftId] = useState(() => CRAFTING_RECIPES[0]?.id ?? "");
 
   // Pan & Zoom state
   const [zoom, setZoom]     = useState(0.85);
@@ -132,11 +140,32 @@ export default function SkillsPage() {
   const unlocked = (id:string) => id === "core" || stats.skills.includes(id);
   const affordable = (cost:number) => stats.credits >= cost;
   const available = (n: typeof NODES[0]) => !unlocked(n.id) && n.requires.every(r => unlocked(r));
+  const materialInventory = stats.materials ?? createEmptyMaterialInventory();
+  const craftedGear = stats.craftedGear ?? [];
+  const selectedCraft = CRAFTING_RECIPES.find((recipe) => recipe.id === selectedCraftId) ?? CRAFTING_RECIPES[0];
+
+  const getCraftState = (recipe: (typeof CRAFTING_RECIPES)[number]) => {
+    const crafted = craftedGear.includes(recipe.id);
+    const levelReady = stats.level >= recipe.unlockLevel;
+    const missing = getMissingMaterialIds(recipe, materialInventory);
+    const canCraft = !crafted && levelReady && missing.length === 0;
+    const statusLabel = crafted ? "CRAFTED" : canCraft ? "AVAILABLE" : levelReady ? "MISSING" : "LOCKED";
+    const statusColor = crafted ? "#00ff88" : canCraft ? "#ffd36a" : levelReady ? "#ff8a80" : "#888888";
+    return { crafted, levelReady, missing, canCraft, statusLabel, statusColor };
+  };
 
   const buy = (n: typeof NODES[0]) => {
     if (!available(n)) return;
     const ok = unlockSkill(n.id, n.cost);
     if (ok) { setFlash(n.id); setTimeout(() => setFlash(null), 900); }
+  };
+
+  const craftGear = (recipeId: (typeof CRAFTING_RECIPES)[number]["id"]) => {
+    const ok = craftRecipe(recipeId);
+    setCraftNotice(ok ? "CRAFT SUCCESS" : "CRAFT LOCKED");
+    setTimeout(() => {
+      setCraftNotice((prev) => (prev ? null : prev));
+    }, 1200);
   };
 
   const hovNode = hovered ? NODES.find(n => n.id === hovered) : null;
@@ -380,6 +409,173 @@ export default function SkillsPage() {
                   LOCKED — UNLOCK PREREQUISITES FIRST
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        <div className="absolute z-30 right-3 bottom-3 w-[min(96vw,440px)] sm:w-[440px] max-h-[62vh] overflow-y-auto border border-cyan-300/35 bg-black/80 backdrop-blur-md p-3 pointer-events-auto">
+          <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-2">
+            <div className="flex items-center gap-2">
+              <Hammer size={15} className="text-cyan-200" />
+              <div className="font-mono text-xs tracking-[0.28em] text-cyan-100 uppercase">Crafting Tree</div>
+            </div>
+            <div className="font-mono text-[10px] text-gray-400 uppercase">
+              {craftedGear.length}/{CRAFTING_RECIPES.length} Crafted
+            </div>
+          </div>
+
+          <div className="relative border border-white/10 bg-black/45 h-[220px] mb-2 overflow-hidden">
+            <svg className="absolute inset-0 w-full h-full pointer-events-none">
+              {[0, 1].flatMap((row) =>
+                [0, 1, 2, 3].map((col) => {
+                  const x1 = 12 + col * 19;
+                  const x2 = 12 + (col + 1) * 19;
+                  const y = row === 0 ? 26 : 74;
+                  return (
+                    <line
+                      key={`h-${row}-${col}`}
+                      x1={`${x1}%`}
+                      y1={`${y}%`}
+                      x2={`${x2}%`}
+                      y2={`${y}%`}
+                      stroke="rgba(180,210,255,0.24)"
+                      strokeWidth="1.2"
+                    />
+                  );
+                })
+              )}
+              {[0, 1, 2, 3, 4].map((col) => {
+                const x = 12 + col * 19;
+                return (
+                  <line
+                    key={`v-${col}`}
+                    x1={`${x}%`}
+                    y1="26%"
+                    x2={`${x}%`}
+                    y2="74%"
+                    stroke="rgba(180,210,255,0.16)"
+                    strokeWidth="1"
+                  />
+                );
+              })}
+            </svg>
+
+            {CRAFTING_RECIPES.map((recipe, idx) => {
+              const col = idx % 5;
+              const row = Math.floor(idx / 5);
+              const x = 12 + col * 19;
+              const y = row === 0 ? 26 : 74;
+              const node = getCraftState(recipe);
+              const selected = selectedCraft?.id === recipe.id;
+              return (
+                <button
+                  key={recipe.id}
+                  onClick={() => setSelectedCraftId(recipe.id)}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1"
+                  style={{ left: `${x}%`, top: `${y}%` }}
+                >
+                  <div
+                    className="w-11 h-11 rounded-full border flex items-center justify-center transition-all"
+                    style={{
+                      borderColor: selected ? "#ffffff" : node.statusColor,
+                      background: selected ? `${node.statusColor}33` : `${node.statusColor}22`,
+                      boxShadow: selected ? `0 0 16px ${node.statusColor}` : `0 0 8px ${node.statusColor}88`,
+                    }}
+                  >
+                    {node.crafted ? (
+                      <Check size={16} color="#ffffff" />
+                    ) : node.canCraft ? (
+                      <Gem size={15} color="#ffffff" />
+                    ) : (
+                      <Lock size={14} color="#c5c5c5" />
+                    )}
+                  </div>
+                  <div className="w-16 text-center font-mono text-[7px] uppercase tracking-[0.14em] text-gray-300 leading-tight">
+                    {recipe.name}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedCraft && (
+            <div className="border border-white/12 bg-black/45 px-2.5 py-2">
+              {(() => {
+                const node = getCraftState(selectedCraft);
+                return (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-mono text-[11px] tracking-[0.16em] text-white uppercase truncate">{selectedCraft.name}</div>
+                      <div className="font-mono text-[9px] uppercase tracking-[0.16em]" style={{ color: node.statusColor }}>{node.statusLabel}</div>
+                    </div>
+                    <div className="font-mono text-[9px] text-gray-400 uppercase mt-1">
+                      Level {selectedCraft.unlockLevel} · {selectedCraft.statBoost}
+                    </div>
+                    <div className="font-mono text-[9px] text-gray-500 mt-0.5">{selectedCraft.effectSummary}</div>
+
+                    <div className="mt-2 grid grid-cols-2 gap-1">
+                      {selectedCraft.required.map((materialId) => {
+                        const material = MATERIALS_BY_ID[materialId];
+                        const owned = materialInventory[materialId] ?? 0;
+                        return (
+                          <div
+                            key={materialId}
+                            className="border px-1.5 py-1 flex items-center justify-between"
+                            style={{
+                              borderColor: owned > 0 ? `${material.color}66` : "rgba(255,255,255,0.12)",
+                              background: owned > 0 ? `${material.color}1c` : "rgba(255,255,255,0.03)",
+                            }}
+                          >
+                            <span className="font-mono text-[9px] uppercase truncate pr-2" style={{ color: owned > 0 ? material.color : "#9ca3af" }}>
+                              {material.name}
+                            </span>
+                            <span className="font-mono text-[9px] text-white">{owned}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-gray-500 truncate">
+                        {node.crafted
+                          ? "Gear installed."
+                          : !node.levelReady
+                          ? `Need level ${selectedCraft.unlockLevel}.`
+                          : node.missing.length
+                          ? `Missing: ${node.missing.map((id) => MATERIALS_BY_ID[id].name).join(" + ")}`
+                          : "Ready to craft."}
+                      </div>
+                      <button
+                        onClick={() => craftGear(selectedCraft.id)}
+                        disabled={!node.canCraft}
+                        className="shrink-0 border px-2 py-1 font-mono text-[9px] tracking-[0.18em] uppercase transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{
+                          borderColor: node.canCraft ? "#00f2ff99" : "rgba(255,255,255,0.15)",
+                          color: node.canCraft ? "#d6fbff" : "#666",
+                          background: node.canCraft ? "rgba(0,242,255,0.16)" : "rgba(255,255,255,0.02)",
+                        }}
+                      >
+                        {node.crafted ? "Done" : "Craft"}
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
+          <div className="mt-2 grid grid-cols-5 gap-1">
+            {Object.values(MATERIALS_BY_ID).map((material) => (
+              <div key={material.id} className="border border-white/10 bg-black/45 px-1.5 py-1 text-center">
+                <div className="w-2 h-2 rounded-full mx-auto mb-1" style={{ background: material.color }} />
+                <div className="font-mono text-[8px] text-white">{materialInventory[material.id] ?? 0}</div>
+              </div>
+            ))}
+          </div>
+
+          {craftNotice && (
+            <div className="mt-2 border border-white/10 bg-black/60 px-2 py-1">
+              <div className="font-mono text-[9px] tracking-[0.2em] text-cyan-100 uppercase">{craftNotice}</div>
             </div>
           )}
         </div>
