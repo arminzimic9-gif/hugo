@@ -1,0 +1,68 @@
+{
+  "meta": {
+    "name": "ARENA",
+    "descriptor": "TOP-DOWN PROTOCOL",
+    "levelTag": "A01",
+    "accent": "#00f2ff",
+    "danger": "#ff003c",
+    "support": "#00ff88",
+    "durationSeconds": 60
+  },
+  "world": {
+    "tileSize": 2,
+    "gridWidth": 40,
+    "gridHeight": 40,
+    "wallHeight": 2.4,
+    "wallThickness": 0.6,
+    "propColliderHeight": 1.6
+  },
+  "camera": {
+    "fov": 42,
+    "height": 26,
+    "offsetZ": 10,
+    "followLerp": 4.5
+  },
+  "player": {
+    "modelHeight": 1.8,
+    "speed": 8.5,
+    "radius": 0.55,
+    "maxHealth": 100,
+    "contactInvulnerabilityMs": 720,
+    "pickupRadius": 3.2
+  },
+  "weapon": {
+    "damage": 1,
+    "fireIntervalMs": 390,
+    "projectileSpeed": 23,
+    "projectileLifeMs": 1150,
+    "projectileRadius": 0.18,
+    "targetRange": 24
+  },
+  "progression": {
+    "xpThresholdBase": 6,
+    "xpThresholdPerLevel": 4,
+    "maxUpgradeRank": 5,
+    "upgradeChoices": 3
+  },
+  "limits": {
+    "enemies": 60,
+    "projectiles": 120,
+    "enemyProjectiles": 96,
+    "drops": 80
+  },
+  "rewards": {
+    "baseXp": 150,
+    "scoreXpDivisor": 10,
+    "baseCredits": 25,
+    "scoreCreditsDivisor": 60,
+    "materials": { "iron_shard": 1, "crystal_dust": 1 }
+  },
+  "props": [
+    { "id": "reactor-a", "kind": "reactor", "x": -26, "z": -24, "radius": 1.6 },
+    { "id": "relay-a", "kind": "relay", "x": 24, "z": -22, "radius": 1.1 },
+    { "id": "relay-b", "kind": "relay", "x": -22, "z": 24, "radius": 1.1 },
+    { "id": "reactor-b", "kind": "reactor", "x": 26, "z": 22, "radius": 1.6 },
+    { "id": "pylon-a", "kind": "pylon", "x": 0, "z": -30, "radius": 0.8 },
+    { "id": "pylon-b", "kind": "pylon", "x": 0, "z": 30, "radius": 0.8 }
+  ]
+}

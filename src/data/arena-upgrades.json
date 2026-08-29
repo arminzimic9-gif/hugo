@@ -1,0 +1,58 @@
+[
+  {
+    "id": "precision",
+    "label": "PRECISION",
+    "branch": "COMBAT LINK",
+    "description": "+25% projectile damage.",
+    "color": "#ff1a24",
+    "effects": { "damageMult": 1.25 }
+  },
+  {
+    "id": "rapidfire",
+    "label": "RAPID FIRE",
+    "branch": "COMBAT LINK",
+    "description": "Weapon cycle is 14% faster.",
+    "color": "#ff1a24",
+    "effects": { "fireIntervalMult": 0.86 }
+  },
+  {
+    "id": "ricochet",
+    "label": "RICOCHET",
+    "branch": "COMBAT LINK",
+    "description": "Projectiles jump to another nearby target.",
+    "color": "#ff1a24",
+    "effects": { "bouncesAdd": 1, "bounceRange": 9 }
+  },
+  {
+    "id": "cluster",
+    "label": "CLUSTER BOMB",
+    "branch": "CHAOS LINK",
+    "description": "Every 5th kill releases a radial projectile burst.",
+    "color": "#ff8800",
+    "effects": { "clusterEveryKills": 5, "clusterProjectiles": 6 }
+  },
+  {
+    "id": "barrier",
+    "label": "BARRIER",
+    "branch": "SURVIVAL LINK",
+    "description": "+20 maximum integrity and an instant repair.",
+    "color": "#00ff88",
+    "effects": { "maxHealthAdd": 20, "healAdd": 20 }
+  },
+  {
+    "id": "magnet2",
+    "label": "MAGNET+",
+    "branch": "SURVIVAL LINK",
+    "description": "+1.5m data-core collection radius.",
+    "color": "#00ff88",
+    "effects": { "pickupRadiusAdd": 1.5 }
+  },
+  {
+    "id": "phaserush",
+    "label": "PHASE RUSH",
+    "branch": "FORCE LINK",
+    "description": "+8% movement speed.",
+    "color": "#00f2ff",
+    "effects": { "speedMult": 1.08 }
+  }
+]

@@ -22,6 +22,39 @@
     "multi_view_thumbnails": true
   },
   "batches": {
+    "arena-enemies": {
+      "creditLimit": 60,
+      "assets": [
+        {
+          "id": "arena-drone",
+          "label": "ARENA DRONE",
+          "reference": "Assets/originals/imported/arena-enemies/arena-drone.png",
+          "runtime": "public/models/enemies/arena-drone.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "arena-heavy",
+          "label": "ARENA HEAVY",
+          "reference": "Assets/originals/imported/arena-enemies/arena-heavy.png",
+          "runtime": "public/models/enemies/arena-heavy.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "arena-hunter",
+          "label": "ARENA HUNTER",
+          "reference": "Assets/originals/imported/arena-enemies/arena-hunter.png",
+          "runtime": "public/models/enemies/arena-hunter.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "arena-elite",
+          "label": "ARENA ELITE",
+          "reference": "Assets/originals/imported/arena-enemies/arena-elite.png",
+          "runtime": "public/models/enemies/arena-elite.glb",
+          "expectedCredits": 15
+        }
+      ]
+    },
     "operators": {
       "creditLimit": 45,
       "assets": [

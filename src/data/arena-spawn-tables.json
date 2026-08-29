@@ -1,0 +1,33 @@
+{
+  "spawnDistance": 24,
+  "minSpawnDistance": 14,
+  "phases": [
+    {
+      "id": "breach",
+      "label": "BREACH",
+      "untilSecond": 20,
+      "intervalStartMs": 660,
+      "intervalEndMs": 500,
+      "weights": { "drone": 70, "hunter": 20, "reaver": 10 }
+    },
+    {
+      "id": "escalation",
+      "label": "ESCALATION",
+      "untilSecond": 44,
+      "intervalStartMs": 500,
+      "intervalEndMs": 320,
+      "weights": { "drone": 45, "hunter": 25, "reaver": 15, "heavy": 15 }
+    },
+    {
+      "id": "overload",
+      "label": "OVERLOAD",
+      "untilSecond": 60,
+      "intervalStartMs": 320,
+      "intervalEndMs": 190,
+      "weights": { "drone": 30, "hunter": 30, "reaver": 20, "heavy": 20 }
+    }
+  ],
+  "scripted": [
+    { "second": 44, "kind": "elite", "count": 1 }
+  ]
+}
