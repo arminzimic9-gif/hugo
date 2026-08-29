@@ -1,17 +1,37 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { useGLTF } from "@react-three/drei";
 import { BallCollider, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import ARENA_CONFIG from "@/data/arena-config.json";
 import ARENA_ENEMIES from "@/data/arena-enemies.json";
 import SPAWN_TABLE from "@/data/arena-spawn-tables.json";
 import { useArenaSession } from "@/store/arenaSession";
 import { useArenaWorld, type ArenaWorld, type EnemyHandle, type EnemyKind } from "./world";
-import { ARENA_BOUNDS } from "./TileFloor";
 
 type Spawned = { id: number; kind: EnemyKind; x: number; z: number };
+
+function EnemyModel({ kind }: { kind: EnemyKind }) {
+  const def = ARENA_ENEMIES[kind];
+  const { scene } = useGLTF(def.model);
+  const model = useMemo(() => {
+    const clone = scene.clone(true);
+    const box = new THREE.Box3().setFromObject(clone);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.z, 0.001);
+    const scale = (def.radius * 2.4) / maxDim;
+    clone.scale.setScalar(scale);
+    clone.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
+    clone.traverse((child) => {
+      if (child instanceof THREE.Mesh) child.castShadow = true;
+    });
+    return clone;
+  }, [scene, def.radius]);
+  return <primitive object={model} />;
+}
 
 function PlaceholderMesh({ kind }: { kind: EnemyKind }) {
   const def = ARENA_ENEMIES[kind];
@@ -53,10 +73,12 @@ function Enemy({
   spawned,
   world,
   onDeath,
+  onDespawn,
 }: {
   spawned: Spawned;
   world: ArenaWorld;
   onDeath: (id: number, kind: EnemyKind, position: THREE.Vector3) => void;
+  onDespawn: (id: number) => void;
 }) {
   const def = ARENA_ENEMIES[spawned.kind];
   const bodyRef = useRef<RapierRigidBody>(null);
@@ -101,9 +123,8 @@ function Enemy({
     }
 
     const session = useArenaSession.getState();
-    const currentVel = body.linvel();
     if (session.phase !== "running") {
-      body.setLinvel({ x: 0, y: currentVel.y, z: 0 }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       return;
     }
 
@@ -113,6 +134,13 @@ function Enemy({
     const dist = Math.hypot(dx, dz) || 0.001;
     const dirX = dx / dist;
     const dirZ = dz / dist;
+
+    // Predaleko od igraca na beskonacnoj mapi — tiho ukloni bez nagrade.
+    if (dist > SPAWN_TABLE.despawnDistance) {
+      deadRef.current = true;
+      onDespawn(spawned.id);
+      return;
+    }
 
     let vx = 0;
     let vz = 0;
@@ -130,7 +158,7 @@ function Enemy({
       vx = -dirZ * side * def.speed * 0.6;
       vz = dirX * side * def.speed * 0.6;
     }
-    body.setLinvel({ x: vx, y: currentVel.y, z: vz }, true);
+    body.setLinvel({ x: vx, y: 0, z: vz }, true);
 
     // Contact damage
     if (dist < def.radius + ARENA_CONFIG.player.radius + 0.2) {
@@ -159,7 +187,17 @@ function Enemy({
     if (meshGroup) {
       meshGroup.position.y =
         def.placeholder.hoverHeight - def.radius + Math.sin(age.current * 3) * 0.1;
-      meshGroup.rotation.y += dt * 1.4;
+      if (def.modelReady) {
+        // Modeli gledaju u smjeru kretanja
+        const targetAngle = Math.atan2(vx, vz);
+        if (Math.abs(vx) + Math.abs(vz) > 0.05) {
+          let delta = targetAngle - meshGroup.rotation.y;
+          delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+          meshGroup.rotation.y += delta * Math.min(1, dt * 6);
+        }
+      } else {
+        meshGroup.rotation.y += dt * 1.4;
+      }
     }
   });
 
@@ -168,12 +206,20 @@ function Enemy({
       ref={bodyRef}
       colliders={false}
       lockRotations
+      gravityScale={0}
+      enabledTranslations={[true, false, true]}
       position={[spawned.x, def.radius + 0.4, spawned.z]}
       linearDamping={0.6}
     >
       <BallCollider args={[def.radius]} />
       <group ref={meshGroupRef}>
-        <PlaceholderMesh kind={spawned.kind} />
+        {def.modelReady ? (
+          <Suspense fallback={<PlaceholderMesh kind={spawned.kind} />}>
+            <EnemyModel kind={spawned.kind} />
+          </Suspense>
+        ) : (
+          <PlaceholderMesh kind={spawned.kind} />
+        )}
       </group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -def.radius - 0.32, 0]}>
         <ringGeometry args={[def.radius * 0.85, def.radius * 1.05, 32]} />
@@ -181,6 +227,10 @@ function Enemy({
       </mesh>
     </RigidBody>
   );
+}
+
+for (const def of Object.values(ARENA_ENEMIES)) {
+  if (def.modelReady) useGLTF.preload(def.model);
 }
 
 function pickWeightedKind(weights: Partial<Record<string, number>>): EnemyKind {
@@ -207,23 +257,17 @@ export default function Enemies() {
     (kind: EnemyKind) => {
       if (aliveCount.current >= ARENA_CONFIG.limits.enemies) return;
       const angle = Math.random() * Math.PI * 2;
-      const marginX = ARENA_BOUNDS.halfWidth - 2;
-      const marginZ = ARENA_BOUNDS.halfDepth - 2;
-      const x = THREE.MathUtils.clamp(
-        world.playerPosition.x + Math.cos(angle) * SPAWN_TABLE.spawnDistance,
-        -marginX,
-        marginX
-      );
-      const z = THREE.MathUtils.clamp(
-        world.playerPosition.z + Math.sin(angle) * SPAWN_TABLE.spawnDistance,
-        -marginZ,
-        marginZ
-      );
+      const x = world.playerPosition.x + Math.cos(angle) * SPAWN_TABLE.spawnDistance;
+      const z = world.playerPosition.z + Math.sin(angle) * SPAWN_TABLE.spawnDistance;
       const id = ++sequence.current;
       setEnemies((prev) => [...prev, { id, kind, x, z }]);
     },
     [world]
   );
+
+  const handleDespawn = useCallback((id: number) => {
+    setEnemies((prev) => prev.filter((enemy) => enemy.id !== id));
+  }, []);
 
   const handleDeath = useCallback(
     (id: number, kind: EnemyKind, position: THREE.Vector3) => {
@@ -300,7 +344,13 @@ export default function Enemies() {
   return (
     <group>
       {enemies.map((spawned) => (
-        <Enemy key={spawned.id} spawned={spawned} world={world} onDeath={handleDeath} />
+        <Enemy
+          key={spawned.id}
+          spawned={spawned}
+          world={world}
+          onDeath={handleDeath}
+          onDespawn={handleDespawn}
+        />
       ))}
     </group>
   );

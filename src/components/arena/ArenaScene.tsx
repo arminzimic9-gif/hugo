@@ -1,15 +1,38 @@
 "use client";
 
+import { useRef } from "react";
+import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import ARENA_CONFIG from "@/data/arena-config.json";
 import { useArenaSession } from "@/store/arenaSession";
-import TileFloor from "./TileFloor";
+import { useArenaWorld } from "./world";
+import DistrictFloor from "./DistrictFloor";
 import Player from "./Player";
 import Enemies from "./Enemies";
 import Projectiles from "./Projectiles";
 import Drops from "./Drops";
+
+function AmbientSparkles() {
+  const world = useArenaWorld();
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(() => {
+    groupRef.current?.position.set(world.playerPosition.x, 0, world.playerPosition.z);
+  });
+  return (
+    <group ref={groupRef}>
+      <Sparkles
+        count={140}
+        scale={[80, 10, 80]}
+        size={2.2}
+        speed={0.25}
+        color={ARENA_CONFIG.meta.accent}
+        opacity={0.5}
+      />
+    </group>
+  );
+}
 
 function SessionTicker() {
   useFrame((_, dt) => {
@@ -41,8 +64,8 @@ export default function ArenaScene({ heroModel }: { heroModel: string }) {
       />
       <hemisphereLight args={["#1c2c4a", "#05070d", 0.6]} />
       <SessionTicker />
-      <TileFloor />
-      <Sparkles count={140} scale={[80, 10, 80]} size={2.2} speed={0.25} color={ARENA_CONFIG.meta.accent} opacity={0.5} />
+      <DistrictFloor />
+      <AmbientSparkles />
       <Player heroModel={heroModel} />
       <Enemies />
       <Projectiles />

@@ -9,7 +9,6 @@ import ARENA_CONFIG from "@/data/arena-config.json";
 import { HEROES } from "@/data/heroes";
 import { useArenaSession } from "@/store/arenaSession";
 import { nearestEnemy, useArenaWorld } from "./world";
-import { ARENA_BOUNDS } from "./TileFloor";
 
 const PLAYER = ARENA_CONFIG.player;
 const WEAPON = ARENA_CONFIG.weapon;
@@ -95,15 +94,11 @@ export default function Player({ heroModel }: { heroModel: string }) {
     const moveZ = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
     const length = Math.hypot(moveX, moveZ);
     const speed = PLAYER.speed * session.mods.speedMult;
-    const currentVel = body.linvel();
     if (running && length > 0) {
-      body.setLinvel(
-        { x: (moveX / length) * speed, y: currentVel.y, z: (moveZ / length) * speed },
-        true
-      );
+      body.setLinvel({ x: (moveX / length) * speed, y: 0, z: (moveZ / length) * speed }, true);
       headingAngle.current = Math.atan2(moveX, moveZ);
     } else {
-      body.setLinvel({ x: 0, y: currentVel.y, z: 0 }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
     }
 
     const modelGroup = modelGroupRef.current;
@@ -145,14 +140,14 @@ export default function Player({ heroModel }: { heroModel: string }) {
     camera.lookAt(translation.x, 0, translation.z);
   });
 
-  const spawnLimit = Math.min(ARENA_BOUNDS.halfWidth, ARENA_BOUNDS.halfDepth) - 2;
-
   return (
     <RigidBody
       ref={bodyRef}
       colliders={false}
       lockRotations
-      position={[0, 1, Math.min(4, spawnLimit)]}
+      gravityScale={0}
+      enabledTranslations={[true, false, true]}
+      position={[0, 0, 4]}
       linearDamping={0.4}
     >
       <CapsuleCollider args={[PLAYER.modelHeight / 2 - PLAYER.radius, PLAYER.radius]} position={[0, PLAYER.modelHeight / 2, 0]} />

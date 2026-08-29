@@ -1,4 +1,30 @@
 {
+  "arena-enemies": {
+    "arena-drone": {
+      "taskId": "01a04cc1-f361-774c-af97-fa094428024c",
+      "status": "pending",
+      "credits": 15,
+      "notes": "Image-to-3d iz enemy-pack reference. Ceka odobrenje korisnika."
+    },
+    "arena-heavy": {
+      "taskId": "01a04cc3-a34f-72b2-9c0d-aec925d54c08",
+      "status": "pending",
+      "credits": 15,
+      "notes": "Image-to-3d iz enemy-pack reference. Ceka odobrenje korisnika."
+    },
+    "arena-hunter": {
+      "taskId": "01a04cc5-ff95-76d0-8004-c70f3a00e8c5",
+      "status": "pending",
+      "credits": 15,
+      "notes": "Image-to-3d iz enemy-pack reference. Ceka odobrenje korisnika."
+    },
+    "arena-elite": {
+      "taskId": "01a04cc7-f92f-72ab-919d-99e0800a37bb",
+      "status": "pending",
+      "credits": 15,
+      "notes": "Image-to-3d iz enemy-pack reference. Ceka odobrenje korisnika."
+    }
+  },
   "operators": {
     "vanguard": {
       "taskId": "01a04c8c-77e8-74db-a9af-1fdf750d69f8",

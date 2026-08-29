@@ -1,6 +1,7 @@
 {
   "spawnDistance": 24,
   "minSpawnDistance": 14,
+  "despawnDistance": 55,
   "phases": [
     {
       "id": "breach",

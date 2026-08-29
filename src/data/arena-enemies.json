@@ -12,8 +12,14 @@
     "projectileSpeed": 8.5,
     "projectileDamage": 8,
     "preferredDistance": 8,
-    "placeholder": { "shape": "octahedron", "size": 0.75, "color": "#ff365f", "hoverHeight": 1.1 },
-    "model": "/models/enemies/arena-drone.glb"
+    "placeholder": {
+      "shape": "octahedron",
+      "size": 0.75,
+      "color": "#ff365f",
+      "hoverHeight": 1.1
+    },
+    "model": "/models/enemies/arena-drone.glb",
+    "modelReady": true
   },
   "heavy": {
     "label": "HEAVY",
@@ -28,8 +34,14 @@
     "projectileSpeed": 7.3,
     "projectileDamage": 12,
     "preferredDistance": 13,
-    "placeholder": { "shape": "box", "size": 1.5, "color": "#ff5a24", "hoverHeight": 0.8 },
-    "model": "/models/enemies/arena-heavy.glb"
+    "placeholder": {
+      "shape": "box",
+      "size": 1.5,
+      "color": "#ff5a24",
+      "hoverHeight": 0.8
+    },
+    "model": "/models/enemies/arena-heavy.glb",
+    "modelReady": true
   },
   "hunter": {
     "label": "HUNTER",
@@ -44,8 +56,14 @@
     "projectileSpeed": 13,
     "projectileDamage": 10,
     "preferredDistance": 11,
-    "placeholder": { "shape": "cone", "size": 0.9, "color": "#ff3bd4", "hoverHeight": 0.9 },
-    "model": "/models/enemies/arena-hunter.glb"
+    "placeholder": {
+      "shape": "cone",
+      "size": 0.9,
+      "color": "#ff3bd4",
+      "hoverHeight": 0.9
+    },
+    "model": "/models/enemies/arena-hunter.glb",
+    "modelReady": true
   },
   "reaver": {
     "label": "REAVER",
@@ -60,8 +78,14 @@
     "projectileSpeed": 0,
     "projectileDamage": 0,
     "preferredDistance": 0,
-    "placeholder": { "shape": "tetrahedron", "size": 0.95, "color": "#b13bff", "hoverHeight": 0.7 },
-    "model": "/models/enemies/arena-reaver.glb"
+    "placeholder": {
+      "shape": "tetrahedron",
+      "size": 0.95,
+      "color": "#b13bff",
+      "hoverHeight": 0.7
+    },
+    "model": "/models/enemies/arena-reaver.glb",
+    "modelReady": false
   },
   "elite": {
     "label": "ELITE",
@@ -76,7 +100,13 @@
     "projectileSpeed": 6.3,
     "projectileDamage": 16,
     "preferredDistance": 14,
-    "placeholder": { "shape": "dodecahedron", "size": 2.4, "color": "#ff003c", "hoverHeight": 1.4 },
-    "model": "/models/enemies/arena-elite.glb"
+    "placeholder": {
+      "shape": "dodecahedron",
+      "size": 2.4,
+      "color": "#ff003c",
+      "hoverHeight": 1.4
+    },
+    "model": "/models/enemies/arena-elite.glb",
+    "modelReady": true
   }
 }

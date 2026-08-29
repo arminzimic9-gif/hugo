@@ -9,13 +9,23 @@
     "durationSeconds": 60
   },
   "world": {
-    "tileSize": 2,
-    "gridWidth": 40,
-    "gridHeight": 40,
-    "wallHeight": 2.4,
-    "wallThickness": 0.6,
-    "propColliderHeight": 1.6
+    "districtSize": 40,
+    "chunkRadius": 1,
+    "propColliderHeight": 1.6,
+    "nodeChance": 0.36,
+    "maxPropsPerChunk": 2,
+    "projectileCullDistance": 60
   },
+  "districts": [
+    { "id": "neon-crossing", "image": "/images/maps/arena/cyber-district-a.webp" },
+    { "id": "freight-grid", "image": "/images/maps/arena/cyber-district-b.webp" },
+    { "id": "transit-ward", "image": "/images/maps/arena/cyber-district-c.webp" }
+  ],
+  "propKinds": [
+    { "kind": "reactor", "radius": 1.6 },
+    { "kind": "relay", "radius": 1.1 },
+    { "kind": "pylon", "radius": 0.8 }
+  ],
   "camera": {
     "fov": 42,
     "height": 26,
@@ -57,12 +67,5 @@
     "scoreCreditsDivisor": 60,
     "materials": { "iron_shard": 1, "crystal_dust": 1 }
   },
-  "props": [
-    { "id": "reactor-a", "kind": "reactor", "x": -26, "z": -24, "radius": 1.6 },
-    { "id": "relay-a", "kind": "relay", "x": 24, "z": -22, "radius": 1.1 },
-    { "id": "relay-b", "kind": "relay", "x": -22, "z": 24, "radius": 1.1 },
-    { "id": "reactor-b", "kind": "reactor", "x": 26, "z": 22, "radius": 1.6 },
-    { "id": "pylon-a", "kind": "pylon", "x": 0, "z": -30, "radius": 0.8 },
-    { "id": "pylon-b", "kind": "pylon", "x": 0, "z": 30, "radius": 0.8 }
-  ]
+  "spawnSafeRadius": 6
 }

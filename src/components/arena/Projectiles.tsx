@@ -7,10 +7,10 @@ import ARENA_CONFIG from "@/data/arena-config.json";
 import ARENA_ENEMIES from "@/data/arena-enemies.json";
 import { useArenaSession } from "@/store/arenaSession";
 import { nearestEnemy, useArenaWorld, type PlayerProjectileOptions } from "./world";
-import { ARENA_BOUNDS } from "./TileFloor";
 
 const WEAPON = ARENA_CONFIG.weapon;
 const LIMITS = ARENA_CONFIG.limits;
+const CULL_DISTANCE = ARENA_CONFIG.world.projectileCullDistance;
 
 type PlayerShot = {
   active: boolean;
@@ -34,11 +34,10 @@ type EnemyShot = {
 const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 const tempMatrix = new THREE.Matrix4();
 
-function outOfBounds(position: THREE.Vector3): boolean {
-  return (
-    Math.abs(position.x) > ARENA_BOUNDS.halfWidth + 2 ||
-    Math.abs(position.z) > ARENA_BOUNDS.halfDepth + 2
-  );
+function outOfBounds(position: THREE.Vector3, playerPosition: THREE.Vector3): boolean {
+  const dx = position.x - playerPosition.x;
+  const dz = position.z - playerPosition.z;
+  return dx * dx + dz * dz > CULL_DISTANCE * CULL_DISTANCE;
 }
 
 export default function Projectiles() {
@@ -116,7 +115,7 @@ export default function Projectiles() {
         if (shot.active && running) {
           shot.position.addScaledVector(shot.velocity, dt);
           shot.lifeMs -= stepMs;
-          if (shot.lifeMs <= 0 || outOfBounds(shot.position)) {
+          if (shot.lifeMs <= 0 || outOfBounds(shot.position, world.playerPosition)) {
             shot.active = false;
           } else {
             for (const enemy of world.enemies.values()) {
@@ -160,7 +159,7 @@ export default function Projectiles() {
         if (shot.active && running) {
           shot.position.addScaledVector(shot.velocity, dt);
           shot.lifeMs -= stepMs;
-          if (shot.lifeMs <= 0 || outOfBounds(shot.position)) {
+          if (shot.lifeMs <= 0 || outOfBounds(shot.position, world.playerPosition)) {
             shot.active = false;
           } else {
             const dx = world.playerPosition.x - shot.position.x;
