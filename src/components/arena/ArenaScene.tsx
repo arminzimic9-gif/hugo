@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { Grid, Sparkles } from "@react-three/drei";
+import { Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import ARENA_CONFIG from "@/data/arena-config.json";
 import { useArenaSession } from "@/store/arenaSession";
@@ -42,19 +42,6 @@ export default function ArenaScene({ heroModel }: { heroModel: string }) {
       <hemisphereLight args={["#1c2c4a", "#05070d", 0.6]} />
       <SessionTicker />
       <TileFloor />
-      <Grid
-        position={[0, 0.02, 0]}
-        args={[80, 80]}
-        cellSize={2}
-        cellThickness={0.6}
-        cellColor="#0e2a3f"
-        sectionSize={10}
-        sectionThickness={1.2}
-        sectionColor={ARENA_CONFIG.meta.accent}
-        fadeDistance={70}
-        fadeStrength={2}
-        infiniteGrid={false}
-      />
       <Sparkles count={140} scale={[80, 10, 80]} size={2.2} speed={0.25} color={ARENA_CONFIG.meta.accent} opacity={0.5} />
       <Player heroModel={heroModel} />
       <Enemies />

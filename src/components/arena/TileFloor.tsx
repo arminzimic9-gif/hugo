@@ -1,7 +1,8 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import * as THREE from "three";
+import { useTexture } from "@react-three/drei";
 import { CuboidCollider, RigidBody } from "@react-three/rapier";
 import ARENA_CONFIG from "@/data/arena-config.json";
 
@@ -13,45 +14,37 @@ const FLOOR_DEPTH = tileSize * gridHeight;
 const HALF_W = FLOOR_WIDTH / 2;
 const HALF_D = FLOOR_DEPTH / 2;
 
-const TILE_BASE = new THREE.Color("#0b1220");
-const TILE_ALT = new THREE.Color("#101b30");
-const TILE_ACCENT = new THREE.Color(ARENA_CONFIG.meta.accent);
+const DISTRICT_TEXTURE = "/images/maps/arena/cyber-district-a.webp";
+const DISTRICT_SIZE = 40; // jedan district = 40x40m, art je tile-abilan
 
 function Tiles() {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const count = gridWidth * gridHeight;
-
-  useLayoutEffect(() => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-    const matrix = new THREE.Matrix4();
-    const color = new THREE.Color();
-    let index = 0;
-    for (let gx = 0; gx < gridWidth; gx++) {
-      for (let gz = 0; gz < gridHeight; gz++) {
-        const x = gx * tileSize - HALF_W + tileSize / 2;
-        const z = gz * tileSize - HALF_D + tileSize / 2;
-        matrix.setPosition(x, -0.06, z);
-        mesh.setMatrixAt(index, matrix);
-        const checker = (gx + gz) % 2 === 0;
-        color.copy(checker ? TILE_BASE : TILE_ALT);
-        // Rijetki akcentni tile-ovi daju neon ritam podu.
-        if ((gx * 7 + gz * 13) % 29 === 0) color.lerp(TILE_ACCENT, 0.18);
-        mesh.setColorAt(index, color);
-        index++;
-      }
-    }
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, []);
+  const texture = useTexture(DISTRICT_TEXTURE);
+  const configured = useMemo(() => {
+    const map = texture.clone();
+    map.wrapS = THREE.RepeatWrapping;
+    map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(FLOOR_WIDTH / DISTRICT_SIZE, FLOOR_DEPTH / DISTRICT_SIZE);
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.anisotropy = 8;
+    return map;
+  }, [texture]);
 
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, count]} receiveShadow>
-      <boxGeometry args={[tileSize * 0.97, 0.12, tileSize * 0.97]} />
-      <meshStandardMaterial metalness={0.35} roughness={0.7} />
-    </instancedMesh>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
+      <planeGeometry args={[FLOOR_WIDTH, FLOOR_DEPTH]} />
+      <meshStandardMaterial
+        map={configured}
+        emissiveMap={configured}
+        emissive="#ffffff"
+        emissiveIntensity={0.42}
+        metalness={0.2}
+        roughness={0.85}
+      />
+    </mesh>
   );
 }
+
+useTexture.preload(DISTRICT_TEXTURE);
 
 function Walls() {
   const wallMaterial = (
