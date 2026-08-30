@@ -1,0 +1,46 @@
+[
+  {
+    "id": "nova",
+    "key": "Q",
+    "skillId": "blast",
+    "label": "BLAST NOVA",
+    "description": "AoE eksplozija oko igraca.",
+    "color": "#ff8800",
+    "cooldownMs": 6000,
+    "kind": "nova",
+    "params": { "radius": 8, "damage": 3 }
+  },
+  {
+    "id": "barrier",
+    "key": "F",
+    "skillId": "shield",
+    "label": "BARRIER",
+    "description": "Stit koji upija svu stetu.",
+    "color": "#00ff88",
+    "cooldownMs": 14000,
+    "kind": "shield",
+    "params": { "durationMs": 3000 }
+  },
+  {
+    "id": "timewarp",
+    "key": "E",
+    "skillId": "timewarp",
+    "label": "TIME WARP",
+    "description": "Usporava sve neprijatelje.",
+    "color": "#00f2ff",
+    "cooldownMs": 16000,
+    "kind": "slow",
+    "params": { "durationMs": 3500, "slowFactor": 0.35 }
+  },
+  {
+    "id": "overdrive",
+    "key": "R",
+    "skillId": "overdrive",
+    "label": "OVERDRIVE",
+    "description": "Trostruka brzina paljbe.",
+    "color": "#ff003c",
+    "cooldownMs": 22000,
+    "kind": "overdrive",
+    "params": { "durationMs": 4500, "fireRateMult": 3 }
+  }
+]

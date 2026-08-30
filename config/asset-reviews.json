@@ -63,6 +63,24 @@
       "status": "pending",
       "credits": 30,
       "notes": "Text-to-3d. Ceka odobrenje korisnika."
+    },
+    "relay-tower": {
+      "taskId": "01a051a5-52d2-7346-8aed-718b104c33de",
+      "status": "pending",
+      "credits": 30,
+      "notes": "Text-to-3d. Ceka odobrenje korisnika."
+    },
+    "cargo-container": {
+      "taskId": "01a051a7-99cb-740f-bc40-5ab887d55421",
+      "status": "pending",
+      "credits": 30,
+      "notes": "Text-to-3d. Ceka odobrenje korisnika."
+    },
+    "city-block": {
+      "taskId": "01a051aa-22b9-72f7-954a-06a6737c1922",
+      "status": "pending",
+      "credits": 30,
+      "notes": "Text-to-3d. Ceka odobrenje korisnika."
     }
   }
 }

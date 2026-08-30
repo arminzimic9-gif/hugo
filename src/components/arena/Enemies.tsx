@@ -142,21 +142,26 @@ function Enemy({
       return;
     }
 
+    // Time Warp usporava neprijatelje
+    const slowMult =
+      performance.now() < session.buffs.slowUntil ? session.buffs.slowFactor : 1;
+    const moveSpeed = def.speed * slowMult;
+
     let vx = 0;
     let vz = 0;
     if (def.behavior === "melee") {
-      vx = dirX * def.speed;
-      vz = dirZ * def.speed;
+      vx = dirX * moveSpeed;
+      vz = dirZ * moveSpeed;
     } else if (dist > def.preferredDistance + 1) {
-      vx = dirX * def.speed;
-      vz = dirZ * def.speed;
+      vx = dirX * moveSpeed;
+      vz = dirZ * moveSpeed;
     } else if (dist < def.preferredDistance - 1.5) {
-      vx = -dirX * def.speed;
-      vz = -dirZ * def.speed;
+      vx = -dirX * moveSpeed;
+      vz = -dirZ * moveSpeed;
     } else {
       const side = spawned.id % 2 === 0 ? 1 : -1;
-      vx = -dirZ * side * def.speed * 0.6;
-      vz = dirX * side * def.speed * 0.6;
+      vx = -dirZ * side * moveSpeed * 0.6;
+      vz = dirX * side * moveSpeed * 0.6;
     }
     body.setLinvel({ x: vx, y: 0, z: vz }, true);
 
@@ -276,6 +281,9 @@ export default function Enemies() {
       session.addScore(def.score);
       session.addKill();
       world.spawnDrop(position, def.xp);
+      // PoE-style smrt: eksplozija cestica + sok-prsten u boji neprijatelja
+      world.spawnEffect("burst", position, def.placeholder.color, Math.min(2, def.radius * 1.1));
+      world.spawnEffect("ring", position, def.placeholder.color, Math.min(2.4, def.radius));
 
       const mods = session.mods;
       if (mods.clusterProjectiles > 0) {

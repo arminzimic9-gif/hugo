@@ -13,6 +13,7 @@ import Player from "./Player";
 import Enemies from "./Enemies";
 import Projectiles from "./Projectiles";
 import Drops from "./Drops";
+import Effects from "./Effects";
 
 function AmbientSparkles() {
   const world = useArenaWorld();
@@ -70,6 +71,7 @@ export default function ArenaScene({ heroModel }: { heroModel: string }) {
       <Enemies />
       <Projectiles />
       <Drops />
+      <Effects />
       <EffectComposer>
         <Bloom intensity={0.9} luminanceThreshold={0.35} luminanceSmoothing={0.2} mipmapBlur />
         <Vignette eskil={false} offset={0.18} darkness={0.78} />

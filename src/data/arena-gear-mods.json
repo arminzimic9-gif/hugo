@@ -1,0 +1,12 @@
+{
+  "runner_boots": { "speedMult": 1.06 },
+  "shadow_gloves": { "fireIntervalMult": 0.94 },
+  "plasma_belt": { "damageMult": 1.08 },
+  "titanium_chestplate": { "maxHealthAdd": 15 },
+  "gravity_boots": { "speedMult": 1.05, "pickupRadiusAdd": 0.5 },
+  "neon_visor": { "pickupRadiusAdd": 1.2 },
+  "void_cloak": { "maxHealthAdd": 10, "speedMult": 1.03 },
+  "solar_ring": { "damageMult": 1.06, "fireIntervalMult": 0.97 },
+  "ancient_stabilizer": { "maxHealthAdd": 20, "damageMult": 1.05 },
+  "dragon_engine": { "damageMult": 1.12, "fireIntervalMult": 0.92 }
+}

@@ -152,6 +152,33 @@
           "expectedCredits": 30
         }
       ]
+    },
+    "arena-env-rest": {
+      "creditLimit": 90,
+      "mode": "text-to-3d",
+      "assets": [
+        {
+          "id": "relay-tower",
+          "label": "RELAY TOWER",
+          "prompt": "low-poly cyberpunk communications relay tower, angular antenna array with cyan neon emissive panels and dish, dark gunmetal metal, sci-fi city environment prop, clean silhouette, game-ready",
+          "runtime": "public/models/props/relay-tower.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "cargo-container",
+          "label": "CARGO CONTAINER",
+          "prompt": "low-poly cyberpunk armored cargo container, industrial reinforced crate with orange neon hazard markings and small status lights, dark gunmetal metal, sci-fi city environment prop, clean silhouette, game-ready",
+          "runtime": "public/models/props/cargo-container.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "city-block",
+          "label": "CITY BLOCK",
+          "prompt": "low-poly cyberpunk city building block, small modular tower with glowing neon signs, emissive windows and rooftop antennas, dark facade with cyan and magenta accents, sci-fi city environment prop, clean silhouette, game-ready",
+          "runtime": "public/models/props/city-block.glb",
+          "expectedCredits": 30
+        }
+      ]
     }
   },
   "roadmap": {

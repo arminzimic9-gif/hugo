@@ -20,11 +20,14 @@ export type PlayerProjectileOptions = {
   bounceRange: number;
 };
 
+export type EffectKind = "ring" | "burst" | "nova";
+
 export type ArenaWorld = {
   playerBody: RapierRigidBody | null;
   playerPosition: THREE.Vector3;
   enemies: Map<number, EnemyHandle>;
   killsSinceCluster: number;
+  spawnEffect: (kind: EffectKind, position: THREE.Vector3, color: string, scale?: number) => void;
   firePlayerProjectile: (
     origin: THREE.Vector3,
     direction: THREE.Vector3,
@@ -46,6 +49,7 @@ export function createArenaWorld(): ArenaWorld {
     playerPosition: new THREE.Vector3(),
     enemies: new Map(),
     killsSinceCluster: 0,
+    spawnEffect: () => {},
     firePlayerProjectile: () => {},
     fireEnemyProjectile: () => {},
     spawnDrop: () => {},

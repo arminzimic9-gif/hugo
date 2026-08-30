@@ -71,6 +71,7 @@ export default function Drops() {
             drop.active = false;
             session.addArenaXp(drop.xp);
             session.addScore(drop.xp * 5);
+            world.spawnEffect("burst", drop.position, "#7dffc9", 0.55);
           }
         }
       }
@@ -91,11 +92,13 @@ export default function Drops() {
 
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, ARENA_CONFIG.limits.drops]} frustumCulled={false}>
-      <octahedronGeometry args={[0.28]} />
+      <octahedronGeometry args={[0.3]} />
       <meshStandardMaterial
-        color={ARENA_CONFIG.meta.support}
+        color="#dafff0"
         emissive={ARENA_CONFIG.meta.support}
-        emissiveIntensity={1.8}
+        emissiveIntensity={2.6}
+        metalness={0.3}
+        roughness={0.2}
         toneMapped={false}
       />
     </instancedMesh>

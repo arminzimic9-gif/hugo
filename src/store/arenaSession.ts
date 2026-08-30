@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import ARENA_CONFIG from "@/data/arena-config.json";
 import ARENA_UPGRADES from "@/data/arena-upgrades.json";
+import ARENA_ABILITIES from "@/data/arena-abilities.json";
 
 export type ArenaPhase = "briefing" | "running" | "upgrade" | "victory" | "defeat";
 
@@ -28,8 +29,33 @@ const BASE_MODS: ArenaMods = {
   speedMult: 1,
 };
 
-export function computeMods(ranks: Record<string, number>): ArenaMods {
+export type GearMods = Partial<
+  Pick<ArenaMods, "speedMult" | "damageMult" | "fireIntervalMult" | "maxHealthAdd" | "pickupRadiusAdd">
+>;
+
+export type ArenaBuffs = {
+  shieldUntil: number;
+  slowUntil: number;
+  slowFactor: number;
+  overdriveUntil: number;
+  overdriveMult: number;
+};
+
+const BASE_BUFFS: ArenaBuffs = {
+  shieldUntil: 0,
+  slowUntil: 0,
+  slowFactor: 1,
+  overdriveUntil: 0,
+  overdriveMult: 1,
+};
+
+export function computeMods(ranks: Record<string, number>, gear: GearMods = {}): ArenaMods {
   const mods = { ...BASE_MODS };
+  if (gear.speedMult) mods.speedMult *= gear.speedMult;
+  if (gear.damageMult) mods.damageMult *= gear.damageMult;
+  if (gear.fireIntervalMult) mods.fireIntervalMult *= gear.fireIntervalMult;
+  if (gear.maxHealthAdd) mods.maxHealthAdd += gear.maxHealthAdd;
+  if (gear.pickupRadiusAdd) mods.pickupRadiusAdd += gear.pickupRadiusAdd;
   for (const upgrade of ARENA_UPGRADES) {
     const rank = ranks[upgrade.id] ?? 0;
     if (rank <= 0) continue;
@@ -79,6 +105,9 @@ export interface ArenaSessionState {
   upgradeRanks: Record<string, number>;
   upgradeOptions: string[];
   mods: ArenaMods;
+  gearMods: GearMods;
+  buffs: ArenaBuffs;
+  abilityReadyAt: Record<string, number>;
   lastDamageAt: number;
   rewardsGranted: boolean;
 
@@ -90,6 +119,8 @@ export interface ArenaSessionState {
   damagePlayer: (amount: number) => void;
   addArenaXp: (amount: number) => void;
   chooseUpgrade: (id: string) => void;
+  setGearMods: (gear: GearMods) => void;
+  activateAbility: (id: string) => boolean;
   markRewardsGranted: () => void;
 }
 
@@ -106,6 +137,9 @@ const initialSession = () => ({
   upgradeRanks: {} as Record<string, number>,
   upgradeOptions: [] as string[],
   mods: { ...BASE_MODS },
+  gearMods: {} as GearMods,
+  buffs: { ...BASE_BUFFS },
+  abilityReadyAt: {} as Record<string, number>,
   lastDamageAt: 0,
   rewardsGranted: false,
 });
@@ -136,6 +170,7 @@ export const useArenaSession = create<ArenaSessionState>()((set, get) => ({
     const state = get();
     if (state.phase !== "running") return;
     const now = performance.now();
+    if (now < state.buffs.shieldUntil) return; // barrier upija svu stetu
     if (now - state.lastDamageAt < ARENA_CONFIG.player.contactInvulnerabilityMs) return;
     const health = Math.max(0, state.health - amount);
     set({ health, lastDamageAt: now, phase: health <= 0 ? "defeat" : state.phase });
@@ -164,7 +199,7 @@ export const useArenaSession = create<ArenaSessionState>()((set, get) => ({
   chooseUpgrade: (id) => {
     const state = get();
     const ranks = { ...state.upgradeRanks, [id]: (state.upgradeRanks[id] ?? 0) + 1 };
-    const mods = computeMods(ranks);
+    const mods = computeMods(ranks, state.gearMods);
     const maxHealth = ARENA_CONFIG.player.maxHealth + mods.maxHealthAdd;
     const gainedMaxHealth = maxHealth - state.maxHealth;
     const healAdd =
@@ -180,6 +215,42 @@ export const useArenaSession = create<ArenaSessionState>()((set, get) => ({
       upgradeOptions: [],
       phase: "running",
     });
+  },
+
+  setGearMods: (gear) => {
+    const state = get();
+    const mods = computeMods(state.upgradeRanks, gear);
+    const maxHealth = ARENA_CONFIG.player.maxHealth + mods.maxHealthAdd;
+    set({
+      gearMods: gear,
+      mods,
+      maxHealth,
+      health: Math.min(maxHealth, state.health + Math.max(0, maxHealth - state.maxHealth)),
+    });
+  },
+
+  activateAbility: (id) => {
+    const ability = ARENA_ABILITIES.find((a) => a.id === id);
+    const state = get();
+    if (!ability || state.phase !== "running") return false;
+    const now = performance.now();
+    if ((state.abilityReadyAt[id] ?? 0) > now) return false;
+    const params = ability.params as Partial<Record<string, number>>;
+    const buffs = { ...state.buffs };
+    if (ability.kind === "shield") buffs.shieldUntil = now + (params.durationMs ?? 0);
+    if (ability.kind === "slow") {
+      buffs.slowUntil = now + (params.durationMs ?? 0);
+      buffs.slowFactor = params.slowFactor ?? 1;
+    }
+    if (ability.kind === "overdrive") {
+      buffs.overdriveUntil = now + (params.durationMs ?? 0);
+      buffs.overdriveMult = params.fireRateMult ?? 1;
+    }
+    set({
+      buffs,
+      abilityReadyAt: { ...state.abilityReadyAt, [id]: now + ability.cooldownMs },
+    });
+    return true;
   },
 
   markRewardsGranted: () => set({ rewardsGranted: true }),

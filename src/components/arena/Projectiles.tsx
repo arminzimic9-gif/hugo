@@ -33,6 +33,11 @@ type EnemyShot = {
 
 const hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 const tempMatrix = new THREE.Matrix4();
+const tempQuat = new THREE.Quaternion();
+const tempDir = new THREE.Vector3();
+const unitScale = new THREE.Vector3(1, 1, 1);
+const haloScale = new THREE.Vector3(1.9, 1.9, 1.9);
+const FORWARD = new THREE.Vector3(0, 0, 1);
 
 function outOfBounds(position: THREE.Vector3, playerPosition: THREE.Vector3): boolean {
   const dx = position.x - playerPosition.x;
@@ -44,6 +49,14 @@ export default function Projectiles() {
   const world = useArenaWorld();
   const playerMeshRef = useRef<THREE.InstancedMesh>(null);
   const enemyMeshRef = useRef<THREE.InstancedMesh>(null);
+  const enemyHaloRef = useRef<THREE.InstancedMesh>(null);
+
+  // Izduzeni energy bolt, duzina po +Z (smjeru leta)
+  const boltGeometry = useMemo(() => {
+    const geometry = new THREE.CylinderGeometry(0.075, 0.075, 1.25, 6);
+    geometry.rotateX(Math.PI / 2);
+    return geometry;
+  }, []);
 
   const playerShots = useMemo<PlayerShot[]>(
     () =>
@@ -125,6 +138,7 @@ export default function Projectiles() {
               const dz = enemy.position.z - shot.position.z;
               if (dx * dx + dz * dz <= radius * radius) {
                 enemy.hit(shot.damage);
+                world.spawnEffect("burst", shot.position, ARENA_CONFIG.meta.accent, 0.45);
                 if (shot.bounces > 0) {
                   const next = nearestEnemy(world, shot.position, shot.bounceRange, enemy.id);
                   if (next) {
@@ -144,10 +158,14 @@ export default function Projectiles() {
             }
           }
         }
-        playerMesh.setMatrixAt(
-          index,
-          shot.active ? tempMatrix.makeTranslation(shot.position.x, shot.position.y, shot.position.z) : hiddenMatrix
-        );
+        if (shot.active) {
+          tempDir.copy(shot.velocity).normalize();
+          tempQuat.setFromUnitVectors(FORWARD, tempDir);
+          tempMatrix.compose(shot.position, tempQuat, unitScale);
+          playerMesh.setMatrixAt(index, tempMatrix);
+        } else {
+          playerMesh.setMatrixAt(index, hiddenMatrix);
+        }
       });
       playerMesh.instanceMatrix.needsUpdate = true;
     }
@@ -166,37 +184,50 @@ export default function Projectiles() {
             const dz = world.playerPosition.z - shot.position.z;
             if (dx * dx + dz * dz <= playerHitRadius * playerHitRadius) {
               session.damagePlayer(shot.damage);
+              world.spawnEffect("burst", shot.position, ARENA_CONFIG.meta.danger, 0.5);
               shot.active = false;
             }
           }
         }
-        enemyMesh.setMatrixAt(
-          index,
-          shot.active ? tempMatrix.makeTranslation(shot.position.x, shot.position.y, shot.position.z) : hiddenMatrix
-        );
+        if (shot.active) {
+          tempMatrix.compose(shot.position, tempQuat.identity(), unitScale);
+          enemyMesh.setMatrixAt(index, tempMatrix);
+          if (enemyHaloRef.current) {
+            tempMatrix.compose(shot.position, tempQuat, haloScale);
+            enemyHaloRef.current.setMatrixAt(index, tempMatrix);
+          }
+        } else {
+          enemyMesh.setMatrixAt(index, hiddenMatrix);
+          enemyHaloRef.current?.setMatrixAt(index, hiddenMatrix);
+        }
       });
       enemyMesh.instanceMatrix.needsUpdate = true;
+      if (enemyHaloRef.current) enemyHaloRef.current.instanceMatrix.needsUpdate = true;
     }
   });
 
   return (
     <group>
-      <instancedMesh ref={playerMeshRef} args={[undefined, undefined, LIMITS.projectiles]} frustumCulled={false}>
-        <sphereGeometry args={[WEAPON.projectileRadius, 8, 8]} />
-        <meshStandardMaterial
-          color={ARENA_CONFIG.meta.accent}
-          emissive={ARENA_CONFIG.meta.accent}
-          emissiveIntensity={2.4}
-          toneMapped={false}
-        />
+      <instancedMesh
+        ref={playerMeshRef}
+        geometry={boltGeometry}
+        args={[undefined, undefined, LIMITS.projectiles]}
+        frustumCulled={false}
+      >
+        <meshBasicMaterial color="#aef6ff" toneMapped={false} />
       </instancedMesh>
       <instancedMesh ref={enemyMeshRef} args={[undefined, undefined, LIMITS.enemyProjectiles]} frustumCulled={false}>
-        <sphereGeometry args={[0.22, 8, 8]} />
-        <meshStandardMaterial
+        <sphereGeometry args={[0.16, 10, 10]} />
+        <meshBasicMaterial color="#ffd7e0" toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={enemyHaloRef} args={[undefined, undefined, LIMITS.enemyProjectiles]} frustumCulled={false}>
+        <sphereGeometry args={[0.16, 10, 10]} />
+        <meshBasicMaterial
           color={ARENA_CONFIG.meta.danger}
-          emissive={ARENA_CONFIG.meta.danger}
-          emissiveIntensity={2.2}
+          transparent
+          opacity={0.35}
           toneMapped={false}
+          depthWrite={false}
         />
       </instancedMesh>
     </group>

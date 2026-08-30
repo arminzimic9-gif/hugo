@@ -6,13 +6,65 @@ import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import ARENA_CONFIG from "@/data/arena-config.json";
 import ARENA_UPGRADES from "@/data/arena-upgrades.json";
+import ARENA_ABILITIES from "@/data/arena-abilities.json";
+import GEAR_MODS from "@/data/arena-gear-mods.json";
 import { HEROES } from "@/data/heroes";
 import { useGameStore } from "@/store/gameStore";
-import { useArenaSession } from "@/store/arenaSession";
+import { useArenaSession, type GearMods } from "@/store/arenaSession";
 import { ArenaWorldContext, createArenaWorld } from "./world";
 import ArenaScene from "./ArenaScene";
 
 const CAMERA = ARENA_CONFIG.camera;
+
+// Craftani itemi iz garaze daju pasivne bonuse u areni
+function computeGearMods(craftedGear: string[]): GearMods {
+  const gear = { speedMult: 1, damageMult: 1, fireIntervalMult: 1, maxHealthAdd: 0, pickupRadiusAdd: 0 };
+  for (const id of craftedGear) {
+    const def = (GEAR_MODS as Record<string, GearMods>)[id];
+    if (!def) continue;
+    if (def.speedMult) gear.speedMult *= def.speedMult;
+    if (def.damageMult) gear.damageMult *= def.damageMult;
+    if (def.fireIntervalMult) gear.fireIntervalMult *= def.fireIntervalMult;
+    if (def.maxHealthAdd) gear.maxHealthAdd += def.maxHealthAdd;
+    if (def.pickupRadiusAdd) gear.pickupRadiusAdd += def.pickupRadiusAdd;
+  }
+  return gear;
+}
+
+function AbilityBar() {
+  const session = useArenaSession();
+  const skills = useGameStore((s) => s.stats.skills);
+  const now = typeof performance !== "undefined" ? performance.now() : 0;
+  return (
+    <div className="pointer-events-none absolute bottom-16 left-1/2 flex -translate-x-1/2 gap-2">
+      {ARENA_ABILITIES.map((ability) => {
+        const unlocked = skills.includes(ability.skillId);
+        const readyAt = session.abilityReadyAt[ability.id] ?? 0;
+        const cooldownPct = unlocked
+          ? Math.max(0, Math.min(1, (readyAt - now) / ability.cooldownMs))
+          : 0;
+        return (
+          <div
+            key={ability.id}
+            className="relative h-12 w-12 overflow-hidden border bg-black/70 text-center"
+            style={{ borderColor: unlocked ? ability.color : "#1f2937", opacity: unlocked ? 1 : 0.35 }}
+          >
+            <div
+              className="absolute inset-x-0 bottom-0 bg-white/20"
+              style={{ height: `${cooldownPct * 100}%` }}
+            />
+            <div className="font-display pt-1 text-lg" style={{ color: unlocked ? ability.color : "#4b5563" }}>
+              {ability.key}
+            </div>
+            <div className="text-[6px] tracking-widest text-gray-400">
+              {unlocked ? ability.label : "SKILL TREE"}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function Hud() {
   const session = useArenaSession();
@@ -54,6 +106,7 @@ function Hud() {
             {Math.ceil(session.health)}/{session.maxHealth}
           </span>
         </div>
+        <AbilityBar />
         <div className="flex items-center gap-3">
           <span className="w-24 text-[10px] tracking-[0.3em] text-gray-500">LINK LV {session.xpLevel}</span>
           <div className="h-1.5 flex-1 border border-gray-800 bg-black/60">
@@ -84,7 +137,7 @@ function OverlayFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-function UpgradeOverlay() {
+function UpgradeOverlay({ onPicked }: { onPicked: (id: string) => void }) {
   const options = useArenaSession((s) => s.upgradeOptions);
   const ranks = useArenaSession((s) => s.upgradeRanks);
   const chooseUpgrade = useArenaSession((s) => s.chooseUpgrade);
@@ -99,7 +152,10 @@ function UpgradeOverlay() {
           return (
             <button
               key={id}
-              onClick={() => chooseUpgrade(id)}
+              onClick={() => {
+                chooseUpgrade(id);
+                onPicked(id);
+              }}
               className="group border border-gray-800 p-4 text-left transition-colors hover:bg-white/5"
               style={{ borderTopColor: upgrade.color, borderTopWidth: 2 }}
             >
@@ -194,7 +250,9 @@ export default function ArenaGame() {
   const heroModel = hero.model ?? HEROES.vanguard.model!;
 
   useEffect(() => {
-    useArenaSession.getState().reset();
+    const session = useArenaSession.getState();
+    session.reset();
+    session.setGearMods(computeGearMods(useGameStore.getState().stats.craftedGear));
   }, [runId]);
 
   // Nagrade u trajni profil, samo jednom po pobjedi
@@ -235,7 +293,16 @@ export default function ArenaGame() {
       {phase === "briefing" && (
         <BriefingOverlay heroLabel={hero.label} onStart={() => useArenaSession.getState().start()} />
       )}
-      {phase === "upgrade" && <UpgradeOverlay />}
+      {phase === "upgrade" && (
+        <UpgradeOverlay
+          onPicked={(id) => {
+            const upgrade = ARENA_UPGRADES.find((u) => u.id === id);
+            if (upgrade) {
+              world.spawnEffect("nova", world.playerPosition.clone().setY(1), upgrade.color, 0.9);
+            }
+          }}
+        />
+      )}
       {(phase === "victory" || phase === "defeat") && (
         <EndOverlay victory={phase === "victory"} onRetry={() => setRunId((id) => id + 1)} />
       )}

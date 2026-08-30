@@ -6,7 +6,9 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { CapsuleCollider, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import ARENA_CONFIG from "@/data/arena-config.json";
+import ARENA_ABILITIES from "@/data/arena-abilities.json";
 import { HEROES } from "@/data/heroes";
+import { useGameStore } from "@/store/gameStore";
 import { useArenaSession } from "@/store/arenaSession";
 import { nearestEnemy, useArenaWorld } from "./world";
 
@@ -41,22 +43,52 @@ export default function Player({ heroModel }: { heroModel: string }) {
   const camera = useThree((state) => state.camera);
 
   const input = useRef({ up: false, down: false, left: false, right: false });
+  const shieldRef = useRef<THREE.Mesh>(null);
   const fireTimer = useRef(0);
   const headingAngle = useRef(0);
   const cameraTarget = useRef(new THREE.Vector3());
 
   useEffect(() => {
     const keyMap: Record<string, keyof typeof input.current> = {
-      KeyW: "up",
       ArrowUp: "up",
-      KeyS: "down",
       ArrowDown: "down",
-      KeyA: "left",
       ArrowLeft: "left",
-      KeyD: "right",
       ArrowRight: "right",
+      KeyW: "up",
+      KeyS: "down",
+      KeyA: "left",
+      KeyD: "right",
     };
+    const abilityByCode: Record<string, string> = { KeyQ: "nova", KeyE: "timewarp", KeyR: "overdrive" };
+
+    // WoW/PoE stil: svaka moc ima svoj efekat kad se aktivira
+    const triggerAbility = (abilityId: string) => {
+      const ability = ARENA_ABILITIES.find((a) => a.id === abilityId);
+      if (!ability) return;
+      if (!useGameStore.getState().stats.skills.includes(ability.skillId)) return;
+      const session = useArenaSession.getState();
+      if (!session.activateAbility(ability.id)) return;
+      const origin = world.playerPosition.clone().setY(1);
+      const params = ability.params as Partial<Record<string, number>>;
+      if (ability.kind === "nova") {
+        const radius = params.radius ?? 8;
+        const damage = (params.damage ?? 3) * session.mods.damageMult;
+        for (const enemy of world.enemies.values()) {
+          const dx = enemy.position.x - origin.x;
+          const dz = enemy.position.z - origin.z;
+          if (dx * dx + dz * dz <= radius * radius) enemy.hit(damage);
+        }
+        world.spawnEffect("nova", origin, ability.color, radius / 9);
+      } else {
+        world.spawnEffect("nova", origin, ability.color, 0.7);
+      }
+    };
+
     const onKey = (pressed: boolean) => (event: KeyboardEvent) => {
+      if (pressed && !event.repeat) {
+        const abilityId = event.code === "KeyF" ? "barrier" : abilityByCode[event.code];
+        if (abilityId) triggerAbility(abilityId);
+      }
       const key = keyMap[event.code];
       if (!key) return;
       input.current[key] = pressed;
@@ -125,8 +157,22 @@ export default function Player({ heroModel }: { heroModel: string }) {
             bounces: session.mods.bounces,
             bounceRange: session.mods.bounceRange,
           });
-          fireTimer.current = WEAPON.fireIntervalMs * session.mods.fireIntervalMult;
+          const overdriveMult =
+            performance.now() < session.buffs.overdriveUntil ? session.buffs.overdriveMult : 1;
+          fireTimer.current = (WEAPON.fireIntervalMs * session.mods.fireIntervalMult) / overdriveMult;
         }
+      }
+    }
+
+    // Barrier bubble oko igraca dok stit traje
+    const shield = shieldRef.current;
+    if (shield) {
+      const active = performance.now() < session.buffs.shieldUntil;
+      shield.visible = active;
+      if (active) {
+        const pulse = 1 + Math.sin(performance.now() * 0.012) * 0.05;
+        shield.scale.setScalar(pulse);
+        shield.rotation.y += dt * 1.5;
       }
     }
 
@@ -157,6 +203,18 @@ export default function Player({ heroModel }: { heroModel: string }) {
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
         <ringGeometry args={[0.75, 0.92, 48]} />
         <meshBasicMaterial color={ARENA_CONFIG.meta.accent} transparent opacity={0.65} toneMapped={false} />
+      </mesh>
+      <mesh ref={shieldRef} position={[0, PLAYER.modelHeight / 2, 0]} visible={false}>
+        <sphereGeometry args={[1.35, 24, 16]} />
+        <meshBasicMaterial
+          color="#37ffb0"
+          transparent
+          opacity={0.16}
+          toneMapped={false}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          wireframe
+        />
       </mesh>
       <pointLight color={ARENA_CONFIG.meta.accent} intensity={8} distance={9} position={[0, 2.4, 0]} />
     </RigidBody>

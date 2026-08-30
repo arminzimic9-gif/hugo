@@ -112,8 +112,52 @@ for (const kind of PROP_KINDS) {
   if (kind.modelReady) useGLTF.preload(kind.model);
 }
 
+// Zgrade iz district arta postaju 3D blokovi sa kolizijom — kroz njih se ne prolazi.
+function ChunkBuildings({ cx, cz, districtIndex }: { cx: number; cz: number; districtIndex: number }) {
+  const district = ARENA_CONFIG.districts[districtIndex];
+  const height = ARENA_CONFIG.buildingHeight;
+  const blocks = useMemo(
+    () =>
+      district.buildings.map(([u, v, w, h], i) => ({
+        key: i,
+        x: cx * districtSize + (u + w / 2 - 0.5) * districtSize,
+        z: cz * districtSize + (v + h / 2 - 0.5) * districtSize,
+        width: w * districtSize,
+        depth: h * districtSize,
+        // blaga varijacija visine po chunku da grad ne izgleda stampano
+        height: height * (0.85 + hash2(cx, cz, 60 + i) * 0.5),
+      })),
+    [cx, cz, district, height]
+  );
+
+  return (
+    <>
+      {blocks.map((block) => (
+        <RigidBody key={block.key} type="fixed" position={[block.x, 0, block.z]}>
+          <CuboidCollider args={[block.width / 2, block.height / 2, block.depth / 2]} position={[0, block.height / 2, 0]} />
+          <mesh position={[0, block.height / 2, 0]} castShadow receiveShadow>
+            <boxGeometry args={[block.width, block.height, block.depth]} />
+            <meshStandardMaterial color="#0a101d" metalness={0.5} roughness={0.55} />
+          </mesh>
+          <mesh position={[0, block.height + 0.03, 0]}>
+            <boxGeometry args={[block.width * 0.99, 0.06, block.depth * 0.99]} />
+            <meshStandardMaterial
+              color="#0d1526"
+              emissive={ARENA_CONFIG.meta.accent}
+              emissiveIntensity={0.35}
+              metalness={0.4}
+              roughness={0.5}
+            />
+          </mesh>
+        </RigidBody>
+      ))}
+    </>
+  );
+}
+
 function Chunk({ cx, cz, textures }: { cx: number; cz: number; textures: THREE.Texture[] }) {
-  const texture = textures[Math.floor(hash2(cx, cz, 1) * textures.length)];
+  const districtIndex = Math.floor(hash2(cx, cz, 1) * textures.length);
+  const texture = textures[districtIndex];
   return (
     <group>
       <mesh
@@ -131,6 +175,7 @@ function Chunk({ cx, cz, textures }: { cx: number; cz: number; textures: THREE.T
           roughness={0.85}
         />
       </mesh>
+      <ChunkBuildings cx={cx} cz={cz} districtIndex={districtIndex} />
       <ChunkProps cx={cx} cz={cz} />
     </group>
   );
