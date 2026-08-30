@@ -57,6 +57,12 @@
       "status": "pending",
       "credits": 30,
       "notes": "Text-to-3d. CDN download pukao pa rucno spasen; ceka odobrenje korisnika."
+    },
+    "reactor-tower": {
+      "taskId": "01a051a0-2027-7667-ac13-c333592e269d",
+      "status": "pending",
+      "credits": 30,
+      "notes": "Text-to-3d. Ceka odobrenje korisnika."
     }
   }
 }

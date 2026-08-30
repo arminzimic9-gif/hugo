@@ -37,7 +37,7 @@
       "radius": 1.6,
       "accent": "#00ff88",
       "model": "/models/props/reactor-tower.glb",
-      "modelReady": false
+      "modelReady": true
     },
     {
       "kind": "relay",
