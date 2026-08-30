@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { Suspense, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { useTexture } from "@react-three/drei";
+import { useGLTF, useTexture } from "@react-three/drei";
 import { CuboidCollider, RigidBody } from "@react-three/rapier";
 import ARENA_CONFIG from "@/data/arena-config.json";
 import { useArenaWorld } from "./world";
@@ -13,11 +13,7 @@ const { districtSize, chunkRadius, propColliderHeight, nodeChance, maxPropsPerCh
 const DISTRICT_IMAGES = ARENA_CONFIG.districts.map((district) => district.image);
 const PROP_KINDS = ARENA_CONFIG.propKinds;
 
-const PROP_COLORS: Record<string, string> = {
-  reactor: ARENA_CONFIG.meta.support,
-  relay: ARENA_CONFIG.meta.accent,
-  pylon: "#b13bff",
-};
+const PROP_BY_KIND = Object.fromEntries(PROP_KINDS.map((kind) => [kind.kind, kind]));
 
 // Deterministicki hash po chunk koordinatama — mapa je ista pri svakom povratku.
 function hash2(cx: number, cz: number, salt: number): number {
@@ -56,20 +52,64 @@ function ChunkProps({ cx, cz }: { cx: number; cz: number }) {
             args={[prop.radius, propColliderHeight / 2, prop.radius]}
             position={[0, propColliderHeight / 2, 0]}
           />
-          <mesh position={[0, propColliderHeight / 2, 0]} castShadow>
-            <cylinderGeometry args={[prop.radius * 0.8, prop.radius, propColliderHeight, 8]} />
-            <meshStandardMaterial
-              color="#131d31"
-              emissive={PROP_COLORS[prop.kind] ?? "#ffffff"}
-              emissiveIntensity={0.9}
-              metalness={0.6}
-              roughness={0.35}
-            />
-          </mesh>
+          <PropVisual kind={prop.kind} radius={prop.radius} />
         </RigidBody>
       ))}
     </>
   );
+}
+
+function PropPlaceholder({ kind, radius }: { kind: string; radius: number }) {
+  return (
+    <mesh position={[0, propColliderHeight / 2, 0]} castShadow>
+      <cylinderGeometry args={[radius * 0.8, radius, propColliderHeight, 8]} />
+      <meshStandardMaterial
+        color="#131d31"
+        emissive={PROP_BY_KIND[kind]?.accent ?? "#ffffff"}
+        emissiveIntensity={0.9}
+        metalness={0.6}
+        roughness={0.35}
+      />
+    </mesh>
+  );
+}
+
+function PropModel({ kind, radius }: { kind: string; radius: number }) {
+  const def = PROP_BY_KIND[kind];
+  const { scene } = useGLTF(def.model);
+  const model = useMemo(() => {
+    const clone = scene.clone(true);
+    const box = new THREE.Box3().setFromObject(clone);
+    const size = box.getSize(new THREE.Vector3());
+    const maxFootprint = Math.max(size.x, size.z, 0.001);
+    let scale = (radius * 2.2) / maxFootprint;
+    // Vrlo visoki modeli (npr. antenske kule) se ogranicavaju po visini
+    const maxHeight = ARENA_CONFIG.world.maxPropHeight;
+    if (size.y * scale > maxHeight) scale = maxHeight / size.y;
+    clone.scale.setScalar(scale);
+    const scaledBox = new THREE.Box3().setFromObject(clone);
+    const center = scaledBox.getCenter(new THREE.Vector3());
+    clone.position.set(-center.x, -scaledBox.min.y, -center.z);
+    clone.traverse((child) => {
+      if (child instanceof THREE.Mesh) child.castShadow = true;
+    });
+    return clone;
+  }, [scene, radius]);
+  return <primitive object={model} />;
+}
+
+function PropVisual({ kind, radius }: { kind: string; radius: number }) {
+  const def = PROP_BY_KIND[kind];
+  if (!def?.modelReady) return <PropPlaceholder kind={kind} radius={radius} />;
+  return (
+    <Suspense fallback={<PropPlaceholder kind={kind} radius={radius} />}>
+      <PropModel kind={kind} radius={radius} />
+    </Suspense>
+  );
+}
+
+for (const kind of PROP_KINDS) {
+  if (kind.modelReady) useGLTF.preload(kind.model);
 }
 
 function Chunk({ cx, cz, textures }: { cx: number; cz: number; textures: THREE.Texture[] }) {

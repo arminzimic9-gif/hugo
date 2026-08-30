@@ -85,7 +85,7 @@
       "hoverHeight": 0.7
     },
     "model": "/models/enemies/arena-reaver.glb",
-    "modelReady": false
+    "modelReady": true
   },
   "elite": {
     "label": "ELITE",

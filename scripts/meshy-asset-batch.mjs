@@ -1,7 +1,10 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const API_ROOT = "https://api.meshy.ai/openapi/v1";
+const API_ROOTS = {
+  v1: "https://api.meshy.ai/openapi/v1",
+  v2: "https://api.meshy.ai/openapi/v2",
+};
 const POLL_INTERVAL_MS = 5000;
 const TERMINAL_STATUSES = new Set(["SUCCEEDED", "FAILED", "CANCELED"]);
 
@@ -17,8 +20,10 @@ if (!batchName || !batch) {
   throw new Error(`Unknown batch. Available: ${Object.keys(config.batches).join(", ")}`);
 }
 
+const batchMode = batch.mode ?? "image-to-3d";
+
 if (!execute) {
-  console.log(JSON.stringify({ batch: batchName, creditLimit: batch.creditLimit, assets: batch.assets }, null, 2));
+  console.log(JSON.stringify({ batch: batchName, mode: batchMode, creditLimit: batch.creditLimit, assets: batch.assets }, null, 2));
   console.log("Dry run only. Add --execute to create paid Meshy tasks.");
   process.exit(0);
 }
@@ -31,8 +36,8 @@ const headers = {
   "Content-Type": "application/json",
 };
 
-async function apiRequest(endpoint, options = {}) {
-  const response = await fetch(`${API_ROOT}${endpoint}`, {
+async function apiRequest(endpoint, options = {}, apiVersion = "v1") {
+  const response = await fetch(`${API_ROOTS[apiVersion]}${endpoint}`, {
     ...options,
     headers: { ...headers, ...options.headers },
   });
@@ -56,19 +61,41 @@ async function imageDataUri(filePath) {
   return `data:image/png;base64,${image.toString("base64")}`;
 }
 
-async function download(url, destination) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Download failed with HTTP ${response.status}`);
-  await mkdir(path.dirname(destination), { recursive: true });
-  await writeFile(destination, Buffer.from(await response.arrayBuffer()));
+async function download(url, destination, attempts = 3) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Download failed ${response.status}: ${url}`);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      await writeFile(destination, buffer);
+      return;
+    } catch (error) {
+      // CDN zna imati timeoute; task je vec placen pa ne smijemo srusiti batch
+      if (attempt === attempts) throw error;
+      console.log(`RETRY download ${attempt}/${attempts} ${destination}: ${error.message}`);
+      await new Promise((resolve) => setTimeout(resolve, 5000 * attempt));
+    }
+  }
 }
 
-async function pollTask(taskId) {
+async function pollTask(taskId, endpointBase = "/image-to-3d", apiVersion = "v1") {
   while (true) {
-    const task = await apiRequest(`/image-to-3d/${taskId}`, { method: "GET" });
+    const task = await apiRequest(`${endpointBase}/${taskId}`, { method: "GET" }, apiVersion);
     console.log(`${taskId} ${task.status} ${task.progress ?? 0}%`);
     if (TERMINAL_STATUSES.has(task.status)) return task;
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  }
+}
+
+async function createTaskOrHalt(endpoint, payload, apiVersion, assetId) {
+  try {
+    return await apiRequest(endpoint, { method: "POST", body: JSON.stringify(payload) }, apiVersion);
+  } catch (error) {
+    if (config.policy.haltHttpStatuses.includes(error.status)) {
+      console.log(`STOP Meshy HTTP ${error.status} before ${assetId}`);
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -85,43 +112,65 @@ for (const asset of batch.assets) {
     break;
   }
 
-  const referencePath = path.join(root, asset.reference);
   const taskRoot = path.join(root, config.sourceRoot, asset.id);
   await mkdir(taskRoot, { recursive: true });
-  const payload = {
-    ...config.imageTo3dDefaults,
-    image_url: await imageDataUri(referencePath),
-    texture_image_url: await imageDataUri(referencePath),
-  };
 
-  let created;
-  try {
-    created = await apiRequest("/image-to-3d", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-  } catch (error) {
-    if (config.policy.haltHttpStatuses.includes(error.status)) {
-      console.log(`STOP Meshy HTTP ${error.status} before ${asset.id}`);
+  let task;
+  let requestSummary;
+
+  if (batchMode === "text-to-3d") {
+    // Dvostepeno: preview (geometrija) pa refine (PBR teksture)
+    const previewPayload = {
+      mode: "preview",
+      prompt: asset.prompt,
+      ...(config.textTo3dDefaults ?? {}),
+    };
+    requestSummary = previewPayload;
+    const previewCreated = await createTaskOrHalt("/text-to-3d", previewPayload, "v2", asset.id);
+    if (!previewCreated) break;
+    const previewTask = await pollTask(previewCreated.result, "/text-to-3d", "v2");
+    if (previewTask.status !== "SUCCEEDED") {
+      console.log(`STOP ${asset.id} preview finished as ${previewTask.status}`);
       break;
     }
-    throw error;
+    const refineCreated = await createTaskOrHalt(
+      "/text-to-3d",
+      { mode: "refine", preview_task_id: previewCreated.result, enable_pbr: true },
+      "v2",
+      asset.id
+    );
+    if (!refineCreated) break;
+    task = await pollTask(refineCreated.result, "/text-to-3d", "v2");
+    task.consumed_credits =
+      (previewTask.consumed_credits ?? 5) + (task.consumed_credits ?? 10);
+  } else {
+    const referencePath = path.join(root, asset.reference);
+    const payload = {
+      ...config.imageTo3dDefaults,
+      image_url: await imageDataUri(referencePath),
+      texture_image_url: await imageDataUri(referencePath),
+    };
+    requestSummary = {
+      ...config.imageTo3dDefaults,
+      image_url: "[local reference omitted]",
+      texture_image_url: "[local reference omitted]",
+    };
+    const created = await createTaskOrHalt("/image-to-3d", payload, "v1", asset.id);
+    if (!created) break;
+    task = await pollTask(created.result, "/image-to-3d", "v1");
   }
 
-  const task = await pollTask(created.result);
   const metadata = {
     id: task.id,
     label: asset.label,
+    mode: batchMode,
     status: task.status,
     created_at: task.created_at,
     finished_at: task.finished_at,
     consumed_credits: task.consumed_credits ?? 0,
-    source_reference: asset.reference,
-    request: {
-      ...config.imageTo3dDefaults,
-      image_url: "[local reference omitted]",
-      texture_image_url: "[local reference omitted]"
-    }
+    source_reference: asset.reference ?? null,
+    prompt: asset.prompt ?? null,
+    request: requestSummary,
   };
   await writeFile(path.join(taskRoot, "task.json"), `${JSON.stringify(metadata, null, 2)}\n`);
 

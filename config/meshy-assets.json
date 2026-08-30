@@ -4,7 +4,10 @@
   "runtimeRoot": "public/models",
   "policy": {
     "preserveOriginals": true,
-    "haltHttpStatuses": [402, 429],
+    "haltHttpStatuses": [
+      402,
+      429
+    ],
     "mobileOptimization": false
   },
   "imageTo3dDefaults": {
@@ -17,11 +20,67 @@
     "pose_mode": "a-pose",
     "auto_size": true,
     "origin_at": "bottom",
-    "target_formats": ["glb"],
+    "target_formats": [
+      "glb"
+    ],
     "alpha_thumbnail": true,
     "multi_view_thumbnails": true
   },
+  "textTo3dDefaults": {
+    "art_style": "realistic",
+    "topology": "triangle",
+    "target_polycount": 12000,
+    "should_remesh": true
+  },
   "batches": {
+    "arena-environment": {
+      "creditLimit": 90,
+      "mode": "text-to-3d",
+      "assets": [
+        {
+          "id": "arena-reaver",
+          "label": "ARENA REAVER",
+          "prompt": "low-poly cyberpunk melee assault mech drone, aggressive angular insect-like hovering frame with twin forward blades, dark gunmetal armor panels, glowing violet-purple neon accents and single visor eye, sci-fi game enemy, clean silhouette, game-ready",
+          "runtime": "public/models/enemies/arena-reaver.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "neon-pylon",
+          "label": "NEON PYLON",
+          "prompt": "low-poly cyberpunk street pylon, tall slim antenna tower with glowing cyan neon light strips and small holographic panels, dark gunmetal metal, sci-fi city environment prop, clean silhouette, game-ready",
+          "runtime": "public/models/props/neon-pylon.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "reactor-tower",
+          "label": "REACTOR TOWER",
+          "prompt": "low-poly cyberpunk energy reactor tower, cylindrical industrial core with glowing green energy coils, pipes and vents, dark gunmetal housing, sci-fi city environment prop, clean silhouette, game-ready",
+          "runtime": "public/models/props/reactor-tower.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "relay-tower",
+          "label": "RELAY TOWER",
+          "prompt": "low-poly cyberpunk communications relay tower, angular antenna array with cyan neon emissive panels and dish, dark gunmetal metal, sci-fi city environment prop, clean silhouette, game-ready",
+          "runtime": "public/models/props/relay-tower.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "cargo-container",
+          "label": "CARGO CONTAINER",
+          "prompt": "low-poly cyberpunk armored cargo container, industrial reinforced crate with orange neon hazard markings and small status lights, dark gunmetal metal, sci-fi city environment prop, clean silhouette, game-ready",
+          "runtime": "public/models/props/cargo-container.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "city-block",
+          "label": "CITY BLOCK",
+          "prompt": "low-poly cyberpunk city building block, small modular tower with glowing neon signs, emissive windows and rooftop antennas, dark facade with cyan and magenta accents, sci-fi city environment prop, clean silhouette, game-ready",
+          "runtime": "public/models/props/city-block.glb",
+          "expectedCredits": 30
+        }
+      ]
+    },
     "arena-enemies": {
       "creditLimit": 60,
       "assets": [
@@ -78,6 +137,19 @@
           "reference": "assets/originals/imported/operators/vector.png",
           "runtime": "public/models/operators/vector.glb",
           "expectedCredits": 15
+        }
+      ]
+    },
+    "arena-env-resume": {
+      "creditLimit": 30,
+      "mode": "text-to-3d",
+      "assets": [
+        {
+          "id": "reactor-tower",
+          "label": "REACTOR TOWER",
+          "prompt": "low-poly cyberpunk energy reactor tower, cylindrical industrial core with glowing green energy coils, pipes and vents, dark gunmetal housing, sci-fi city environment prop, clean silhouette, game-ready",
+          "runtime": "public/models/props/reactor-tower.glb",
+          "expectedCredits": 30
         }
       ]
     }

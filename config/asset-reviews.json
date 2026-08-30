@@ -23,6 +23,12 @@
       "status": "pending",
       "credits": 15,
       "notes": "Image-to-3d iz enemy-pack reference. Ceka odobrenje korisnika."
+    },
+    "arena-reaver": {
+      "taskId": "01a05199-ed27-74f8-adee-00b9106a532b",
+      "status": "pending",
+      "credits": 30,
+      "notes": "Text-to-3d (preview+refine). Ceka odobrenje korisnika."
     }
   },
   "operators": {
@@ -43,6 +49,14 @@
       "status": "accepted",
       "credits": 15,
       "notes": "Front, side, and back previews are clean enough for the unrigged hub preview."
+    }
+  },
+  "arena-environment": {
+    "neon-pylon": {
+      "taskId": "01a0519c-3600-7360-9567-9ae719cc99ee",
+      "status": "pending",
+      "credits": 30,
+      "notes": "Text-to-3d. CDN download pukao pa rucno spasen; ceka odobrenje korisnika."
     }
   }
 }

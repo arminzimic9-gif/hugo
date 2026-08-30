@@ -14,17 +14,59 @@
     "propColliderHeight": 1.6,
     "nodeChance": 0.36,
     "maxPropsPerChunk": 2,
+    "maxPropHeight": 9,
     "projectileCullDistance": 60
   },
   "districts": [
-    { "id": "neon-crossing", "image": "/images/maps/arena/cyber-district-a.webp" },
-    { "id": "freight-grid", "image": "/images/maps/arena/cyber-district-b.webp" },
-    { "id": "transit-ward", "image": "/images/maps/arena/cyber-district-c.webp" }
+    {
+      "id": "neon-crossing",
+      "image": "/images/maps/arena/cyber-district-a.webp"
+    },
+    {
+      "id": "freight-grid",
+      "image": "/images/maps/arena/cyber-district-b.webp"
+    },
+    {
+      "id": "transit-ward",
+      "image": "/images/maps/arena/cyber-district-c.webp"
+    }
   ],
   "propKinds": [
-    { "kind": "reactor", "radius": 1.6 },
-    { "kind": "relay", "radius": 1.1 },
-    { "kind": "pylon", "radius": 0.8 }
+    {
+      "kind": "reactor",
+      "radius": 1.6,
+      "accent": "#00ff88",
+      "model": "/models/props/reactor-tower.glb",
+      "modelReady": false
+    },
+    {
+      "kind": "relay",
+      "radius": 1.1,
+      "accent": "#00f2ff",
+      "model": "/models/props/relay-tower.glb",
+      "modelReady": false
+    },
+    {
+      "kind": "pylon",
+      "radius": 0.8,
+      "accent": "#b13bff",
+      "model": "/models/props/neon-pylon.glb",
+      "modelReady": true
+    },
+    {
+      "kind": "cargo",
+      "radius": 1.3,
+      "accent": "#ff8800",
+      "model": "/models/props/cargo-container.glb",
+      "modelReady": false
+    },
+    {
+      "kind": "city-block",
+      "radius": 2.2,
+      "accent": "#ff3bd4",
+      "model": "/models/props/city-block.glb",
+      "modelReady": false
+    }
   ],
   "camera": {
     "fov": 42,
@@ -65,7 +107,10 @@
     "scoreXpDivisor": 10,
     "baseCredits": 25,
     "scoreCreditsDivisor": 60,
-    "materials": { "iron_shard": 1, "crystal_dust": 1 }
+    "materials": {
+      "iron_shard": 1,
+      "crystal_dust": 1
+    }
   },
   "spawnSafeRadius": 6
 }
