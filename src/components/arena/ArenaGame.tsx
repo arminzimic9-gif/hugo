@@ -25,7 +25,6 @@ import type { CraftingRecipeId } from "@/data/crafting";
 import { HEROES, HERO_ARCHETYPES } from "@/data/heroes";
 import { ARENA_OPERATORS, type ArenaOperatorDefinition } from "@/data/arenaOperators";
 import { ARENA_META_UNLOCKS } from "@/data/arenaMeta";
-import { ARENA_QUICK_SKILLS } from "@/data/arena-quick-skills";
 import { ARENA_CONTRACTS_BY_ID } from "@/data/arenaContracts";
 import { ARENA_POWER_DROPS } from "@/data/arenaPowerDrops";
 import {
@@ -36,6 +35,8 @@ import {
 import { ARENA_BOSSES } from "@/data/arenaBosses";
 import {
   ARENA_CLASSES,
+  ARENA_SKILL_NODES,
+  SKILL_BRANCHES,
   computePermanentProgressionEffects,
   type ArenaClassId,
   type ProgressionEffects,
@@ -958,20 +959,27 @@ function EndOverlay({
 }) {
   const router = useRouter();
   const session = useArenaSession();
-  const credits = useGameStore((state) => state.stats.credits);
   const ownedSkills = useGameStore((state) => state.stats.skills);
-  const purchaseQuickSkill = useGameStore((state) => state.purchaseQuickSkill);
+  const skillPoints = useGameStore((state) => state.stats.skillPoints);
+  const unlockSkillNode = useGameStore((state) => state.unlockSkill);
   const endgameUnlocked = useGameStore((state) => state.stats.endgameUnlocked);
   const operativeCycles = useGameStore((state) => state.stats.operativeCycles);
   const activeClass = useGameStore((state) => state.hero.archetype);
   const rewards = useMemo(() => computeRunRewards(victory, session.score), [victory, session.score]);
   const survivedSeconds = Math.max(0, ARENA_CONFIG.meta.durationSeconds - session.timeLeft);
   const upgradeRanks = Object.values(session.upgradeRanks).reduce((sum, rank) => sum + rank, 0);
-  const availableSkills = ARENA_QUICK_SKILLS.filter(
-    (skill) =>
-      !ownedSkills.includes(skill.id) &&
-      skill.requires.every((requirement) => requirement === "core" || ownedSkills.includes(requirement))
-  ).slice(0, 3);
+  // Quick panel nudi 3 najjeftinija DOSTUPNA cvora prave Skill Matrix —
+  // isti cvorovi, ista valuta (Skill Points) kao na /skills stranici.
+  const availableSkills = ARENA_SKILL_NODES.filter(
+    (node) =>
+      node.id !== "core" &&
+      !ownedSkills.includes(node.id) &&
+      node.requires.every(
+        (requirement) => requirement === "core" || ownedSkills.includes(requirement)
+      )
+  )
+    .sort((a, b) => a.cost - b.cost)
+    .slice(0, 3);
   const runUnlocks = ARENA_META_UNLOCKS.filter((unlock) => runUnlockIds.includes(unlock.id));
 
   useEffect(() => {
@@ -1074,32 +1082,35 @@ function EndOverlay({
         <div className="mb-3 flex items-center justify-between">
           <div>
             <div className="text-[9px] tracking-[0.25em] text-gray-500">QUICK SKILL MATRIX</div>
-            <div className="text-[9px] text-gray-700">Potroši kredite i odmah uđi jači.</div>
+            <div className="text-[9px] text-gray-700">Potroši Skill Pointe i odmah uđi jači — isti čvorovi kao na /skills.</div>
           </div>
-          <div className="font-display text-lg text-[#ffcf40]">{credits.toLocaleString()} CR</div>
+          <div className="font-display text-lg" style={{ color: "#35d9ff" }}>{skillPoints} SP</div>
         </div>
         {availableSkills.length > 0 ? (
           <div className="grid gap-2 sm:grid-cols-3">
-            {availableSkills.map((skill) => {
-              const affordable = credits >= skill.cost;
+            {availableSkills.map((node) => {
+              const affordable = skillPoints >= node.cost;
+              const branch = SKILL_BRANCHES[node.branch];
               return (
                 <button
-                  key={skill.id}
+                  key={node.id}
                   disabled={!affordable}
                   onClick={() => {
-                    if (purchaseQuickSkill(skill.id, skill.cost)) arenaAudio.sfx("pickup");
+                    if (unlockSkillNode(node.id, node.cost)) arenaAudio.sfx("pickup");
                   }}
-                  className="border border-white/10 p-3 text-left transition-colors enabled:hover:border-cyan-300/60 enabled:hover:bg-white/5 disabled:opacity-35"
+                  className="border border-white/10 p-3 text-left transition-colors enabled:hover:bg-white/5 disabled:opacity-35"
+                  style={{ borderTopColor: branch.color, borderTopWidth: 2 }}
                 >
-                  <div className="font-display text-xs tracking-widest text-white">{skill.label}</div>
-                  <div className="mt-1 text-[9px] leading-relaxed text-gray-500">{skill.description}</div>
-                  <div className="mt-2 text-[9px] text-[#ffcf40]">{skill.cost} CR</div>
+                  <div className="text-[7px] tracking-[0.25em]" style={{ color: branch.color }}>{branch.label}</div>
+                  <div className="mt-0.5 font-display text-xs tracking-widest text-white">{node.label}</div>
+                  <div className="mt-1 text-[9px] leading-relaxed text-gray-500">{node.description}</div>
+                  <div className="mt-2 text-[9px]" style={{ color: branch.color }}>{node.cost} SP</div>
                 </button>
               );
             })}
           </div>
         ) : (
-          <div className="text-[10px] tracking-widest text-gray-600">NEMA DOSTUPNIH ČVOROVA</div>
+          <div className="text-[10px] tracking-widest text-gray-600">NEMA DOSTUPNIH ČVOROVA — SVE OTKLJUČANO ILI ČEKA PREREQUISITE</div>
         )}
       </div>
       <div className="flex justify-center gap-4">

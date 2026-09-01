@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, CircleDot, Cpu, Hammer, Lock, Sparkles, Swords, Zap } from "lucide-react";
+import { Check, ChevronLeft, Cpu, Hammer, Lock, Sparkles, Swords, Zap } from "lucide-react";
 import {
   ARTIFACT_WEAPONS,
   ARENA_CLASSES,
   ARENA_SKILL_NODES,
   SKILL_BRANCHES,
   getArtifactPowerThreshold,
+  type ArenaSkillNode,
+  type ArtifactTrait,
+  type SkillBranch,
 } from "@/data/arenaProgression";
 import {
   CRAFTING_RECIPES,
@@ -27,12 +30,115 @@ const VIEWS: Array<{ id: ProgressionView; label: string; Icon: typeof Cpu }> = [
   { id: "crafting", label: "GEAR CRAFTING", Icon: Hammer },
 ];
 
+// ---------------------------------------------------------------------------
+// Uredan raspored stabla: redovi po dubini zavisnosti, kolone ravnomjerno.
+// Isti algoritam pokrece Skill Matrix kolone i Artifact trait stablo.
+// ---------------------------------------------------------------------------
+
+type TreeNodeInput = { id: string; requires: string[] };
+type TreeLayout = {
+  positions: Record<string, { x: number; y: number }>;
+  edges: Array<{ from: string; to: string }>;
+  rows: number;
+};
+
+function layoutTree(nodes: TreeNodeInput[], rootIds: string[]): TreeLayout {
+  const byId = Object.fromEntries(nodes.map((node) => [node.id, node]));
+  const depthMemo: Record<string, number> = {};
+  const depthOf = (id: string): number => {
+    if (depthMemo[id] !== undefined) return depthMemo[id];
+    depthMemo[id] = 0; // guard protiv ciklusa
+    const node = byId[id];
+    const parents = (node?.requires ?? []).filter((req) => byId[req]);
+    const depth = parents.length ? 1 + Math.max(...parents.map(depthOf)) : 0;
+    depthMemo[id] = depth;
+    return depth;
+  };
+  nodes.forEach((node) => depthOf(node.id));
+
+  const depths = nodes.map((node) => depthMemo[node.id]);
+  const minDepth = Math.min(...depths);
+  const maxDepth = Math.max(...depths);
+  const rows = maxDepth - minDepth + 1;
+
+  const rowBuckets: Record<number, string[]> = {};
+  for (const node of nodes) {
+    const row = depthMemo[node.id] - minDepth;
+    (rowBuckets[row] ??= []).push(node.id);
+  }
+
+  const positions: Record<string, { x: number; y: number }> = {};
+  for (const [rowKey, ids] of Object.entries(rowBuckets)) {
+    const row = Number(rowKey);
+    ids.forEach((id, index) => {
+      positions[id] = {
+        x: ((index + 1) / (ids.length + 1)) * 100,
+        y: ((row + 0.5) / rows) * 100,
+      };
+    });
+  }
+
+  const edges = nodes.flatMap((node) =>
+    node.requires
+      .filter((req) => byId[req] || rootIds.includes(req))
+      .filter((req) => byId[req])
+      .map((req) => ({ from: req, to: node.id }))
+  );
+
+  return { positions, edges, rows };
+}
+
+const BRANCH_ORDER: SkillBranch[] = ["assault", "fortitude", "mobility", "control", "convergence"];
+
+const TIER_CORES = [
+  { tier: 1 as const, numeral: "I", core: "ARTIFACT SPARK", boss: "AXIOM WARDEN" },
+  { tier: 2 as const, numeral: "II", core: "CLASS AUGMENT", boss: "GEMINI CHOIR" },
+  { tier: 3 as const, numeral: "III", core: "MYTHIC CORE", boss: "THE HOLLOW CROWN" },
+];
+
+function DiamondNode({
+  color,
+  state,
+  size = 48,
+  children,
+}: {
+  color: string;
+  state: "active" | "ready" | "locked" | "selected";
+  size?: number;
+  children?: React.ReactNode;
+}) {
+  const borderColor = state === "locked" ? "#2c3440" : color;
+  return (
+    <span
+      className="flex rotate-45 items-center justify-center border bg-[#05080b] transition-all"
+      style={{
+        width: size,
+        height: size,
+        borderColor,
+        borderWidth: state === "active" ? 2 : 1,
+        color: state === "locked" ? "#4e5865" : color,
+        boxShadow:
+          state === "active"
+            ? `0 0 18px ${color}55`
+            : state === "ready"
+              ? `0 0 12px ${color}33`
+              : state === "selected"
+                ? `0 0 10px ${color}44`
+                : undefined,
+      }}
+    >
+      <span className="-rotate-45">{children}</span>
+    </span>
+  );
+}
+
 export default function SkillsPage() {
   const router = useRouter();
   const { username, hero, stats, unlockSkill, upgradeArtifactTrait, craftRecipe } = useGameStore();
   const [mounted, setMounted] = useState(false);
   const [view, setView] = useState<ProgressionView>("matrix");
   const [selectedSkillId, setSelectedSkillId] = useState("core");
+  const [selectedTraitId, setSelectedTraitId] = useState<string | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState(CRAFTING_RECIPES[0]?.id);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -51,20 +157,30 @@ export default function SkillsPage() {
   const artifact = stats.artifactWeapons[hero.archetype];
   const artifactThreshold = getArtifactPowerThreshold(artifact);
   const materialInventory = stats.materials ?? createEmptyMaterialInventory();
-  const selectedSkill = ARENA_SKILL_NODES.find((node) => node.id === selectedSkillId) ?? ARENA_SKILL_NODES[0];
-  const selectedRecipe = CRAFTING_RECIPES.find((recipe) => recipe.id === selectedRecipeId) ?? CRAFTING_RECIPES[0];
+  const selectedSkill =
+    ARENA_SKILL_NODES.find((node) => node.id === selectedSkillId) ?? ARENA_SKILL_NODES[0];
+  const selectedTrait =
+    artifactDefinition.traits.find((trait) => trait.id === selectedTraitId) ?? null;
+  const selectedRecipe =
+    CRAFTING_RECIPES.find((recipe) => recipe.id === selectedRecipeId) ?? CRAFTING_RECIPES[0];
+
   const unlocked = (id: string) => id === "core" || stats.skills.includes(id);
   const available = (id: string) => {
     const node = ARENA_SKILL_NODES.find((candidate) => candidate.id === id);
     return Boolean(node && !unlocked(id) && node.requires.every(unlocked));
   };
-  const branchCounts = useMemo(
-    () => Object.fromEntries(Object.keys(SKILL_BRANCHES).map((branch) => [branch, {
-      total: ARENA_SKILL_NODES.filter((node) => node.branch === branch).length,
-      active: ARENA_SKILL_NODES.filter((node) => node.branch === branch && unlocked(node.id)).length,
-    }])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stats.skills]
+
+  // Uredne kolone: po jedno mini-stablo za svaku granu.
+  const branchLayouts = useMemo(() => {
+    return BRANCH_ORDER.map((branchId) => {
+      const nodes = ARENA_SKILL_NODES.filter((node) => node.branch === branchId);
+      return { branchId, nodes, layout: layoutTree(nodes, ["core"]) };
+    });
+  }, []);
+
+  const traitLayout = useMemo(
+    () => layoutTree(artifactDefinition.traits, []),
+    [artifactDefinition]
   );
 
   if (!mounted || !username) return null;
@@ -76,18 +192,46 @@ export default function SkillsPage() {
   const buySkill = (id: string) => {
     const node = ARENA_SKILL_NODES.find((candidate) => candidate.id === id);
     if (!node || !available(id)) return;
-    flashNotice(unlockSkill(node.id, node.cost) ? `${node.label} ONLINE` : `NEED ${node.cost} SKILL POINT${node.cost === 1 ? "" : "S"}`);
+    flashNotice(
+      unlockSkill(node.id, node.cost)
+        ? `${node.label} ONLINE`
+        : `NEED ${node.cost} SKILL POINT${node.cost === 1 ? "" : "S"}`
+    );
   };
   const buyTrait = (traitId: string) => {
     const trait = artifactDefinition.traits.find((candidate) => candidate.id === traitId);
-    flashNotice(upgradeArtifactTrait(traitId) ? `${trait?.label ?? "TRAIT"} UPGRADED` : "TRAIT REQUIREMENT NOT MET");
+    flashNotice(
+      upgradeArtifactTrait(traitId)
+        ? `${trait?.label ?? "TRAIT"} UPGRADED`
+        : "TRAIT REQUIREMENT NOT MET"
+    );
   };
   const getCraftState = (recipe: (typeof CRAFTING_RECIPES)[number]) => {
     const crafted = stats.craftedGear.includes(recipe.id);
     const levelReady = stats.level >= recipe.unlockLevel;
     const prerequisiteReady = !recipe.prerequisite || stats.craftedGear.includes(recipe.prerequisite);
     const missing = getMissingMaterialIds(recipe, materialInventory);
-    return { crafted, levelReady, prerequisiteReady, missing, canCraft: !crafted && levelReady && prerequisiteReady && missing.length === 0 };
+    return {
+      crafted,
+      levelReady,
+      prerequisiteReady,
+      missing,
+      canCraft: !crafted && levelReady && prerequisiteReady && missing.length === 0,
+    };
+  };
+
+  const traitState = (trait: ArtifactTrait) => {
+    const rank = artifact.traits[trait.id] ?? 0;
+    const requirementsMet = trait.requires.every((id) => (artifact.traits[id] ?? 0) > 0);
+    const tierMet = artifact.tier >= trait.requiredTier;
+    const canBuy = tierMet && requirementsMet && rank < trait.maxRank && artifact.points >= trait.cost;
+    return { rank, requirementsMet, tierMet, canBuy };
+  };
+
+  const skillNodeState = (node: ArenaSkillNode): "active" | "ready" | "locked" | "selected" => {
+    if (unlocked(node.id)) return "active";
+    if (available(node.id)) return "ready";
+    return "locked";
   };
 
   return (
@@ -95,77 +239,191 @@ export default function SkillsPage() {
       <div className="pointer-events-none fixed inset-0 opacity-20 scanlines" />
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#030607]/96 backdrop-blur-xl">
         <div className="flex min-h-20 flex-wrap items-center justify-between gap-4 px-4 py-3 md:px-8">
-          <button type="button" onClick={() => router.push("/hub")} className="flex items-center gap-2 font-mono text-[9px] tracking-[0.18em] text-gray-500 hover:text-white">
+          <button
+            type="button"
+            onClick={() => router.push("/hub")}
+            className="flex items-center gap-2 font-mono text-[9px] tracking-[0.18em] text-gray-500 hover:text-white"
+          >
             <ChevronLeft className="h-4 w-4" /> CONTROL DECK
           </button>
           <nav className="grid grid-cols-3 border border-white/10">
             {VIEWS.map(({ id, label, Icon }) => (
-              <button key={id} type="button" onClick={() => setView(id)} className="flex h-11 items-center justify-center gap-2 border-r border-white/10 px-3 font-mono text-[8px] last:border-r-0" style={{ color: view === id ? classDefinition.accent : "#68717e", background: view === id ? `${classDefinition.accent}12` : "transparent" }}>
+              <button
+                key={id}
+                type="button"
+                onClick={() => setView(id)}
+                className="flex h-11 items-center justify-center gap-2 border-r border-white/10 px-3 font-mono text-[8px] last:border-r-0"
+                style={{
+                  color: view === id ? classDefinition.accent : "#68717e",
+                  background: view === id ? `${classDefinition.accent}12` : "transparent",
+                }}
+              >
                 <Icon className="h-3.5 w-3.5" /> {label}
               </button>
             ))}
           </nav>
           <div className="flex items-center gap-6 text-right font-mono">
-            <div><div className="text-[7px] text-gray-500">SKILL POINTS</div><div className="text-xl" style={{ color: classDefinition.accent }}>{stats.skillPoints}</div></div>
-            <div><div className="text-[7px] text-gray-500">ACTIVE CLASS</div><div className="text-sm text-white">{classDefinition.label}</div></div>
+            <div>
+              <div className="text-[7px] text-gray-500">SKILL POINTS</div>
+              <div className="text-xl" style={{ color: classDefinition.accent }}>{stats.skillPoints}</div>
+            </div>
+            <div>
+              <div className="text-[7px] text-gray-500">ACTIVE CLASS</div>
+              <div className="text-sm text-white">{classDefinition.label}</div>
+            </div>
           </div>
         </div>
       </header>
 
       {view === "matrix" ? (
-        <section className="grid min-h-[calc(100vh-80px)] grid-cols-1 xl:grid-cols-[minmax(760px,1fr)_360px]">
+        <section className="grid min-h-[calc(100vh-80px)] grid-cols-1 xl:grid-cols-[1fr_350px]">
           <div className="overflow-auto border-r border-white/10 p-4 md:p-7">
-            <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <div className="font-mono text-[8px] tracking-[0.24em] text-cyan-200/60">PERMANENT ACCOUNT POWER</div>
-                <h1 className="font-display text-3xl tracking-[0.12em]">CONNECTED SKILL MATRIX</h1>
-                <p className="mt-2 max-w-2xl font-mono text-[9px] leading-relaxed text-gray-500">Every node below is loaded into Arena combat. Levels award one Skill Point; no node refers to retired campaign mechanics.</p>
+            <div className="mb-5">
+              <div className="font-mono text-[8px] tracking-[0.24em] text-cyan-200/60">
+                PERMANENT ACCOUNT POWER · ALL CLASSES
               </div>
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(SKILL_BRANCHES).filter(([id]) => id !== "core").map(([id, branch]) => {
-                  const count = branchCounts[id];
-                  return <div key={id} className="border border-white/10 bg-black/45 px-2.5 py-2 font-mono text-[7px]" style={{ color: branch.color }}>{branch.label} {count.active}/{count.total}</div>;
-                })}
-              </div>
+              <h1 className="font-display text-3xl tracking-[0.12em]">SKILL MATRIX</h1>
+              <p className="mt-2 max-w-2xl font-mono text-[9px] leading-relaxed text-gray-500">
+                Five disciplines, one core. Every node is loaded into Arena combat. Click a node to
+                inspect it; unlock it from the panel or with a double-click.
+              </p>
             </div>
-            <div className="relative h-[820px] min-w-[760px] overflow-hidden border border-white/10 bg-black/35">
-              <div className="absolute inset-0 opacity-25" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px)", backgroundSize: "36px 36px" }} />
-              <svg className="pointer-events-none absolute inset-0 h-full w-full">
-                {ARENA_SKILL_NODES.flatMap((node) => node.requires.map((requirementId) => {
-                  const parent = ARENA_SKILL_NODES.find((candidate) => candidate.id === requirementId);
-                  if (!parent) return null;
-                  const active = unlocked(node.id) && unlocked(parent.id);
-                  const color = SKILL_BRANCHES[node.branch].color;
-                  return <line key={`${node.id}-${parent.id}`} x1={`${parent.x}%`} y1={`${parent.y}%`} x2={`${node.x}%`} y2={`${node.y}%`} stroke={active ? color : unlocked(parent.id) ? `${color}66` : "#202733"} strokeWidth={active ? 2.5 : 1} />;
-                }))}
-              </svg>
-              {ARENA_SKILL_NODES.map((node) => {
-                const active = unlocked(node.id);
-                const ready = available(node.id);
-                const selected = selectedSkill.id === node.id;
-                const branch = SKILL_BRANCHES[node.branch];
+
+            {/* Core cvor iznad kolona */}
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedSkillId("core")}
+                className="flex flex-col items-center gap-2"
+              >
+                <DiamondNode color="#ffffff" state={selectedSkillId === "core" ? "selected" : "active"} size={56}>
+                  <Cpu className="h-5 w-5" />
+                </DiamondNode>
+                <span className="font-mono text-[8px] tracking-[0.3em] text-white">HUGO CORE</span>
+              </button>
+            </div>
+
+            {/* Pet urednih kolona — po jedna za svaku granu */}
+            <div className="grid gap-3 md:grid-cols-3 2xl:grid-cols-5">
+              {branchLayouts.map(({ branchId, nodes, layout }) => {
+                const branch = SKILL_BRANCHES[branchId];
+                const active = nodes.filter((node) => unlocked(node.id)).length;
+                const panelHeight = Math.max(300, layout.rows * 108);
                 return (
-                  <button key={node.id} type="button" onClick={() => setSelectedSkillId(node.id)} onDoubleClick={() => buySkill(node.id)} className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1" style={{ left: `${node.x}%`, top: `${node.y}%` }}>
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full border bg-[#05080b] transition-transform hover:scale-105" style={{ borderColor: active || ready || selected ? branch.color : "#2c3440", color: active || ready ? branch.color : "#4e5865", boxShadow: active ? `0 0 18px ${branch.color}55` : selected ? `0 0 10px ${branch.color}33` : undefined }}>
-                      {active ? <Check className="h-4 w-4" /> : ready ? <Zap className="h-4 w-4" /> : <Lock className="h-3.5 w-3.5" />}
-                    </span>
-                    <span className="max-w-28 text-center font-mono text-[7px] leading-tight" style={{ color: active ? "#fff" : ready ? branch.color : "#59616c" }}>{node.label}</span>
-                  </button>
+                  <div key={branchId} className="border border-white/10 bg-black/35">
+                    <div
+                      className="flex items-center justify-between border-b px-3 py-2 font-mono text-[8px] tracking-[0.22em]"
+                      style={{ borderColor: `${branch.color}44`, color: branch.color }}
+                    >
+                      <span>{branch.label}</span>
+                      <span>{active}/{nodes.length}</span>
+                    </div>
+                    <div className="relative" style={{ height: panelHeight }}>
+                      <svg className="pointer-events-none absolute inset-0 h-full w-full">
+                        {layout.edges.map(({ from, to }) => {
+                          const a = layout.positions[from];
+                          const b = layout.positions[to];
+                          if (!a || !b) return null;
+                          const lit = unlocked(from) && unlocked(to);
+                          const half = unlocked(from);
+                          return (
+                            <line
+                              key={`${from}-${to}`}
+                              x1={`${a.x}%`} y1={`${a.y}%`} x2={`${b.x}%`} y2={`${b.y}%`}
+                              stroke={lit ? branch.color : half ? `${branch.color}55` : "#1d2430"}
+                              strokeWidth={lit ? 2 : 1}
+                            />
+                          );
+                        })}
+                      </svg>
+                      {nodes.map((node) => {
+                        const position = layout.positions[node.id];
+                        const state = skillNodeState(node);
+                        const displayState = selectedSkillId === node.id && state === "locked" ? "selected" : state;
+                        const crossRequires = node.requires.filter(
+                          (req) => req !== "core" && !nodes.some((sibling) => sibling.id === req)
+                        );
+                        return (
+                          <button
+                            key={node.id}
+                            type="button"
+                            onClick={() => setSelectedSkillId(node.id)}
+                            onDoubleClick={() => buySkill(node.id)}
+                            className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
+                            style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                          >
+                            <DiamondNode color={branch.color} state={displayState} size={44}>
+                              {state === "active" ? (
+                                <Check className="h-4 w-4" />
+                              ) : state === "ready" ? (
+                                <Zap className="h-4 w-4" />
+                              ) : (
+                                <Lock className="h-3.5 w-3.5" />
+                              )}
+                            </DiamondNode>
+                            <span
+                              className="max-w-24 text-center font-mono text-[6.5px] leading-tight tracking-wide"
+                              style={{ color: state === "active" ? "#fff" : state === "ready" ? branch.color : "#59616c" }}
+                            >
+                              {node.label}
+                            </span>
+                            {crossRequires.length ? (
+                              <span className="font-mono text-[6px] text-gray-600">
+                                REQ: {crossRequires.join(" · ").toUpperCase()}
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>
           </div>
+
           <aside className="bg-black/55 p-6 xl:sticky xl:top-20 xl:h-[calc(100vh-80px)]">
-            <div className="font-mono text-[8px] tracking-[0.24em]" style={{ color: SKILL_BRANCHES[selectedSkill.branch].color }}>{SKILL_BRANCHES[selectedSkill.branch].label}</div>
-            <h2 className="mt-2 font-display text-2xl tracking-[0.12em]">{selectedSkill.label}</h2>
-            <p className="mt-4 font-mono text-[11px] leading-relaxed text-gray-300">{selectedSkill.description}</p>
-            <div className="mt-4 border-l-2 border-white/10 pl-3 font-mono text-[9px] leading-relaxed text-gray-500">WHY: {selectedSkill.why}</div>
-            <div className="mt-6 space-y-2 border-y border-white/10 py-5 font-mono text-[8px]">
-              <div className="flex justify-between"><span className="text-gray-500">COST</span><span>{selectedSkill.cost} SKILL POINT{selectedSkill.cost === 1 ? "" : "S"}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-gray-500">REQUIRES</span><span className="text-right">{selectedSkill.requires.length ? selectedSkill.requires.join(" · ").toUpperCase() : "NONE"}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">STATUS</span><span>{unlocked(selectedSkill.id) ? "ACTIVE" : available(selectedSkill.id) ? "READY" : "LOCKED"}</span></div>
+            <div
+              className="font-mono text-[8px] tracking-[0.24em]"
+              style={{ color: SKILL_BRANCHES[selectedSkill.branch].color }}
+            >
+              {SKILL_BRANCHES[selectedSkill.branch].label}
             </div>
-            <button type="button" disabled={!available(selectedSkill.id) || stats.skillPoints < selectedSkill.cost} onClick={() => buySkill(selectedSkill.id)} className="mt-6 w-full border px-4 py-4 text-left font-mono text-[9px] disabled:opacity-30" style={{ borderColor: SKILL_BRANCHES[selectedSkill.branch].color, color: SKILL_BRANCHES[selectedSkill.branch].color }}>
+            <h2 className="mt-2 font-display text-2xl tracking-[0.12em]">{selectedSkill.label}</h2>
+            <p className="mt-4 font-mono text-[11px] leading-relaxed text-gray-300">
+              {selectedSkill.description}
+            </p>
+            <div className="mt-4 border-l-2 border-white/10 pl-3 font-mono text-[9px] leading-relaxed text-gray-500">
+              WHY: {selectedSkill.why}
+            </div>
+            <div className="mt-6 space-y-2 border-y border-white/10 py-5 font-mono text-[8px]">
+              <div className="flex justify-between">
+                <span className="text-gray-500">COST</span>
+                <span>{selectedSkill.cost} SKILL POINT{selectedSkill.cost === 1 ? "" : "S"}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">REQUIRES</span>
+                <span className="text-right">
+                  {selectedSkill.requires.length ? selectedSkill.requires.join(" · ").toUpperCase() : "NONE"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">STATUS</span>
+                <span>
+                  {unlocked(selectedSkill.id) ? "ACTIVE" : available(selectedSkill.id) ? "READY" : "LOCKED"}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={!available(selectedSkill.id) || stats.skillPoints < selectedSkill.cost}
+              onClick={() => buySkill(selectedSkill.id)}
+              className="mt-6 w-full border px-4 py-4 text-left font-mono text-[9px] disabled:opacity-30"
+              style={{
+                borderColor: SKILL_BRANCHES[selectedSkill.branch].color,
+                color: SKILL_BRANCHES[selectedSkill.branch].color,
+              }}
+            >
               {unlocked(selectedSkill.id) ? "NODE ACTIVE" : `UNLOCK · ${selectedSkill.cost} SP`}
             </button>
           </aside>
@@ -173,42 +431,219 @@ export default function SkillsPage() {
       ) : null}
 
       {view === "artifact" ? (
-        <section className="mx-auto grid min-h-[calc(100vh-80px)] max-w-7xl grid-cols-1 lg:grid-cols-[360px_1fr]">
-          <aside className="border-r border-white/10 bg-black/55 p-6 lg:p-8">
-            <div className="font-mono text-[8px] tracking-[0.25em]" style={{ color: artifactDefinition.color }}>{classDefinition.fantasy} ARTIFACT</div>
-            <h1 className="mt-2 font-display text-4xl tracking-[0.12em]">{artifactDefinition.name}</h1>
-            <div className="mt-2 font-mono text-[9px] text-gray-500">STARTS AS · {artifactDefinition.prototype}</div>
-            <div className="mt-7 grid grid-cols-2 gap-2">
-              <div className="border border-white/10 bg-black/45 p-4"><div className="font-mono text-[7px] text-gray-500">AWAKENING TIER</div><div className="mt-1 font-display text-3xl">{artifact.tier}/3</div></div>
-              <div className="border border-white/10 bg-black/45 p-4"><div className="font-mono text-[7px] text-gray-500">TRAIT POINTS</div><div className="mt-1 font-display text-3xl">{artifact.points}</div></div>
+        <section className="mx-auto min-h-[calc(100vh-80px)] max-w-7xl p-5 lg:p-9">
+          <div className="mb-2 font-mono text-[8px] tracking-[0.25em]" style={{ color: artifactDefinition.color }}>
+            {classDefinition.fantasy} ARTIFACT · PER-CLASS PROGRESSION
+          </div>
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <h1 className="font-display text-4xl tracking-[0.12em]">{artifactDefinition.name}</h1>
+            <div className="font-mono text-[9px] text-gray-500">STARTS AS · {artifactDefinition.prototype}</div>
+          </div>
+
+          {/* Tier kartice — Quironax stil: rimski broj, jezgra, power prsten */}
+          <div className="grid gap-3 md:grid-cols-3">
+            {TIER_CORES.map(({ tier, numeral, core, boss }) => {
+              const claimed = artifact.tier >= tier;
+              const isNext = artifact.tier === tier - 1;
+              const ringProgress = Math.min(1, artifact.power / artifactThreshold);
+              const circumference = 2 * Math.PI * 44;
+              return (
+                <div
+                  key={tier}
+                  className="relative flex items-center gap-5 border bg-black/40 p-5"
+                  style={{
+                    borderColor: claimed ? `${artifactDefinition.color}88` : isNext ? `${artifactDefinition.color}44` : "rgba(255,255,255,.08)",
+                    boxShadow: claimed ? `inset 0 0 40px ${artifactDefinition.color}0d` : undefined,
+                    opacity: claimed || isNext ? 1 : 0.55,
+                  }}
+                >
+                  <div className="relative h-24 w-24 shrink-0">
+                    <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+                      <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="3" />
+                      {claimed ? (
+                        <circle cx="50" cy="50" r="44" fill="none" stroke={artifactDefinition.color} strokeWidth="3" />
+                      ) : isNext ? (
+                        <circle
+                          cx="50" cy="50" r="44" fill="none"
+                          stroke={artifactDefinition.color} strokeWidth="3"
+                          strokeDasharray={`${ringProgress * circumference} ${circumference}`}
+                          strokeLinecap="butt"
+                        />
+                      ) : null}
+                    </svg>
+                    <div
+                      className="absolute inset-0 flex items-center justify-center font-display text-3xl"
+                      style={{ color: claimed || isNext ? artifactDefinition.color : "#3d4552" }}
+                    >
+                      {numeral}
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-display text-base tracking-[0.1em] text-white">{core}</div>
+                    <div className="mt-1 font-mono text-[8px] leading-relaxed text-gray-500">
+                      {claimed ? (
+                        <span style={{ color: artifactDefinition.color }}>CLAIMED</span>
+                      ) : (
+                        <>DEFEAT <span className="text-gray-300">{boss}</span></>
+                      )}
+                    </div>
+                    {isNext && !claimed ? (
+                      <div className="mt-2 font-mono text-[8px] text-gray-400">
+                        POWER {artifact.power}/{artifactThreshold} → +1 TRAIT POINT
+                      </div>
+                    ) : null}
+                    {claimed && tier === artifact.tier ? (
+                      <div className="mt-2 font-mono text-[8px]" style={{ color: artifactDefinition.color }}>
+                        {artifact.points} TRAIT POINT{artifact.points === 1 ? "" : "S"} · POWER {artifact.power}/{artifactThreshold}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Trait stablo — pravo stablo sa linijama, rank pipovima i tier kapijama */}
+          <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_330px]">
+            <div className="border border-white/10 bg-black/35">
+              <div className="border-b border-white/10 px-4 py-2 font-mono text-[8px] tracking-[0.24em] text-gray-500">
+                TRAIT TREE · ARTIFACT POWER → TRAIT POINTS → RANKS
+              </div>
+              <div className="relative" style={{ height: Math.max(360, traitLayout.rows * 130) }}>
+                <svg className="pointer-events-none absolute inset-0 h-full w-full">
+                  {traitLayout.edges.map(({ from, to }) => {
+                    const a = traitLayout.positions[from];
+                    const b = traitLayout.positions[to];
+                    if (!a || !b) return null;
+                    const lit = (artifact.traits[from] ?? 0) > 0 && (artifact.traits[to] ?? 0) > 0;
+                    const half = (artifact.traits[from] ?? 0) > 0;
+                    return (
+                      <line
+                        key={`${from}-${to}`}
+                        x1={`${a.x}%`} y1={`${a.y}%`} x2={`${b.x}%`} y2={`${b.y}%`}
+                        stroke={lit ? artifactDefinition.color : half ? `${artifactDefinition.color}55` : "#1d2430"}
+                        strokeWidth={lit ? 2 : 1}
+                      />
+                    );
+                  })}
+                </svg>
+                {artifactDefinition.traits.map((trait) => {
+                  const position = traitLayout.positions[trait.id];
+                  const state = traitState(trait);
+                  const nodeState =
+                    state.rank > 0 ? "active" : state.tierMet && state.requirementsMet ? "ready" : "locked";
+                  return (
+                    <button
+                      key={trait.id}
+                      type="button"
+                      onClick={() => setSelectedTraitId(trait.id)}
+                      onDoubleClick={() => buyTrait(trait.id)}
+                      className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
+                      style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                    >
+                      <DiamondNode
+                        color={artifactDefinition.color}
+                        state={selectedTraitId === trait.id && nodeState === "locked" ? "selected" : nodeState}
+                        size={52}
+                      >
+                        {state.rank > 0 ? (
+                          <Sparkles className="h-4 w-4" />
+                        ) : nodeState === "ready" ? (
+                          <Zap className="h-4 w-4" />
+                        ) : (
+                          <Lock className="h-4 w-4" />
+                        )}
+                      </DiamondNode>
+                      <span
+                        className="max-w-28 text-center font-mono text-[7px] leading-tight"
+                        style={{ color: state.rank > 0 ? "#fff" : nodeState === "ready" ? artifactDefinition.color : "#59616c" }}
+                      >
+                        {trait.label}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        {Array.from({ length: trait.maxRank }, (_, pip) => (
+                          <span
+                            key={pip}
+                            className="h-1 w-3"
+                            style={{
+                              background: pip < state.rank ? artifactDefinition.color : "rgba(255,255,255,.14)",
+                              boxShadow: pip < state.rank ? `0 0 6px ${artifactDefinition.color}66` : undefined,
+                            }}
+                          />
+                        ))}
+                      </span>
+                      {!state.tierMet ? (
+                        <span className="font-mono text-[6px] text-gray-600">TIER {trait.requiredTier}</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="mt-5"><div className="flex justify-between font-mono text-[8px] text-gray-500"><span>ARTIFACT POWER</span><span>{artifact.power}/{artifactThreshold}</span></div><div className="mt-2 h-1.5 bg-white/10"><div className="h-full" style={{ width: `${Math.min(100, artifact.power / artifactThreshold * 100)}%`, background: artifactDefinition.color }} /></div></div>
-            <div className="mt-7 space-y-3 border-t border-white/10 pt-6 font-mono text-[9px] leading-relaxed">
-              <div><span className="text-gray-500">BOSS I</span><br />Artifact Spark awakens the prototype and opens Tier 1.</div>
-              <div><span className="text-gray-500">BOSS II</span><br />Class Augment opens specialization traits.</div>
-              <div><span className="text-gray-500">BOSS III</span><br />Mythic Core opens the capstone and Underground endgame.</div>
-            </div>
-          </aside>
-          <div className="p-5 lg:p-9">
-            <h2 className="font-display text-2xl tracking-[0.12em]">ARTIFACT TRAIT GRID</h2>
-            <p className="mt-2 font-mono text-[9px] text-gray-500">Artifact Power becomes Trait Points. Boss tiers gate new rows; class choice determines the weapon and tree.</p>
-            <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {artifactDefinition.traits.map((trait) => {
-                const rank = artifact.traits[trait.id] ?? 0;
-                const requirementsMet = trait.requires.every((id) => (artifact.traits[id] ?? 0) > 0);
-                const tierMet = artifact.tier >= trait.requiredTier;
-                const canBuy = tierMet && requirementsMet && rank < trait.maxRank && artifact.points >= trait.cost;
-                return (
-                  <article key={trait.id} className="border bg-black/45 p-4" style={{ borderColor: rank > 0 ? `${artifactDefinition.color}99` : "rgba(255,255,255,.1)" }}>
-                    <div className="flex items-start justify-between gap-4"><div className="flex h-10 w-10 items-center justify-center rounded-full border" style={{ borderColor: tierMet ? artifactDefinition.color : "#343b45", color: tierMet ? artifactDefinition.color : "#4d5662" }}>{rank > 0 ? <Sparkles className="h-4 w-4" /> : tierMet ? <CircleDot className="h-4 w-4" /> : <Lock className="h-4 w-4" />}</div><div className="font-mono text-[8px] text-gray-500">TIER {trait.requiredTier} · RANK {rank}/{trait.maxRank}</div></div>
-                    <h3 className="mt-4 font-display text-lg tracking-[0.1em]">{trait.label}</h3>
-                    <p className="mt-2 font-mono text-[9px] leading-relaxed text-gray-300">{trait.description}</p>
-                    <p className="mt-2 font-mono text-[8px] leading-relaxed text-gray-600">WHY: {trait.why}</p>
-                    <button type="button" disabled={!canBuy} onClick={() => buyTrait(trait.id)} className="mt-4 w-full border px-3 py-2 font-mono text-[8px] disabled:opacity-25" style={{ borderColor: artifactDefinition.color, color: artifactDefinition.color }}>{rank >= trait.maxRank ? "MAX RANK" : !tierMet ? `DEFEAT BOSS ${trait.requiredTier}` : !requirementsMet ? "PREREQUISITE LOCKED" : `UPGRADE · ${trait.cost} AP`}</button>
-                  </article>
-                );
-              })}
-            </div>
+
+            <aside className="border border-white/10 bg-black/55 p-6">
+              {selectedTrait ? (
+                (() => {
+                  const state = traitState(selectedTrait);
+                  return (
+                    <>
+                      <div className="font-mono text-[8px] tracking-[0.24em]" style={{ color: artifactDefinition.color }}>
+                        TIER {selectedTrait.requiredTier} TRAIT · RANK {state.rank}/{selectedTrait.maxRank}
+                      </div>
+                      <h2 className="mt-2 font-display text-2xl tracking-[0.1em]">{selectedTrait.label}</h2>
+                      <p className="mt-4 font-mono text-[11px] leading-relaxed text-gray-300">
+                        {selectedTrait.description}
+                      </p>
+                      <div className="mt-4 border-l-2 border-white/10 pl-3 font-mono text-[9px] leading-relaxed text-gray-500">
+                        WHY: {selectedTrait.why}
+                      </div>
+                      <div className="mt-6 space-y-2 border-y border-white/10 py-5 font-mono text-[8px]">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">COST</span>
+                          <span>{selectedTrait.cost} TRAIT POINT{selectedTrait.cost === 1 ? "" : "S"}</span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-gray-500">REQUIRES</span>
+                          <span className="text-right">
+                            {selectedTrait.requires.length ? selectedTrait.requires.join(" · ").toUpperCase() : "NONE"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">GATE</span>
+                          <span>{state.tierMet ? "TIER OPEN" : `DEFEAT BOSS ${selectedTrait.requiredTier}`}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!state.canBuy}
+                        onClick={() => buyTrait(selectedTrait.id)}
+                        className="mt-6 w-full border px-4 py-4 text-left font-mono text-[9px] disabled:opacity-30"
+                        style={{ borderColor: artifactDefinition.color, color: artifactDefinition.color }}
+                      >
+                        {state.rank >= selectedTrait.maxRank
+                          ? "MAX RANK"
+                          : !state.tierMet
+                            ? `DEFEAT BOSS ${selectedTrait.requiredTier}`
+                            : !state.requirementsMet
+                              ? "PREREQUISITE LOCKED"
+                              : `UPGRADE · ${selectedTrait.cost} AP`}
+                      </button>
+                    </>
+                  );
+                })()
+              ) : (
+                <div className="font-mono text-[9px] leading-relaxed text-gray-500">
+                  <div className="mb-3 text-[8px] tracking-[0.24em] text-gray-400">HOW IT WORKS</div>
+                  Boss cores open tiers. Artifact Residue builds Power; each threshold grants a Trait
+                  Point. Click a trait to inspect it; double-click to upgrade.
+                  <div className="mt-5 space-y-3 border-t border-white/10 pt-5">
+                    <div><span className="text-gray-500">BOSS I</span><br />Artifact Spark — awakens the prototype, opens Tier 1.</div>
+                    <div><span className="text-gray-500">BOSS II</span><br />Class Augment — opens specialization traits.</div>
+                    <div><span className="text-gray-500">BOSS III</span><br />Mythic Core — capstone and the Underground gate.</div>
+                  </div>
+                </div>
+              )}
+            </aside>
           </div>
         </section>
       ) : null}
