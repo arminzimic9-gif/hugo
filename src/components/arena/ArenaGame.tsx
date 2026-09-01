@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
@@ -720,6 +720,93 @@ function EvolutionOverlay({ onContinue }: { onContinue: (color: string) => void 
         ENGAGE
       </button>
     </OverlayFrame>
+  );
+}
+
+// Minimap sa fog-of-war otkrivanjem: mapa se crta samo tamo gdje je pilot hodao.
+function MinimapHud({
+  world,
+  runId,
+}: {
+  world: ReturnType<typeof createArenaWorld>;
+  runId: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const visitedRef = useRef<Set<string>>(new Set());
+  const phase = useArenaSession((state) => state.phase);
+  const environment = useArenaSession((state) => state.environment);
+
+  useEffect(() => {
+    visitedRef.current = new Set();
+  }, [runId, environment]);
+
+  useEffect(() => {
+    const CELL = 8; // 8m fog celije
+    const RANGE = 110; // radijus prikaza u metrima
+    const SIZE = 148;
+    const interval = window.setInterval(() => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext("2d");
+      if (!canvas || !ctx) return;
+      const px = world.playerPosition.x;
+      const pz = world.playerPosition.z;
+      const cellX = Math.round(px / CELL);
+      const cellZ = Math.round(pz / CELL);
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dz = -2; dz <= 2; dz++) {
+          visitedRef.current.add(`${cellX + dx}:${cellZ + dz}`);
+        }
+      }
+      const scale = SIZE / (RANGE * 2);
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      ctx.fillStyle = "rgba(3,7,13,0.92)";
+      ctx.fillRect(0, 0, SIZE, SIZE);
+      ctx.fillStyle = environment === "underground" ? "rgba(177,59,255,0.12)" : "rgba(0,242,255,0.1)";
+      const cellPx = CELL * scale;
+      for (const key of visitedRef.current) {
+        const [cx, cz] = key.split(":").map(Number);
+        const sx = (cx * CELL - px) * scale + SIZE / 2;
+        const sz = (cz * CELL - pz) * scale + SIZE / 2;
+        if (sx < -cellPx || sx > SIZE + cellPx || sz < -cellPx || sz > SIZE + cellPx) continue;
+        ctx.fillRect(sx - cellPx / 2, sz - cellPx / 2, cellPx + 0.5, cellPx + 0.5);
+      }
+      for (const enemy of world.enemies.values()) {
+        const sx = (enemy.position.x - px) * scale + SIZE / 2;
+        const sz = (enemy.position.z - pz) * scale + SIZE / 2;
+        if (sx < 2 || sx > SIZE - 2 || sz < 2 || sz > SIZE - 2) continue;
+        const isBossUnit = enemy.kind.startsWith("boss_");
+        ctx.fillStyle = isBossUnit ? "#ffcf40" : enemy.kind === "elite" ? "#ff6a24" : "#ff3b5c";
+        ctx.beginPath();
+        ctx.arc(sx, sz, isBossUnit ? 3.5 : 1.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = "#00f2ff";
+      ctx.beginPath();
+      ctx.arc(SIZE / 2, SIZE / 2, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,242,255,0.45)";
+      ctx.beginPath();
+      ctx.arc(SIZE / 2, SIZE / 2, 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }, 180);
+    return () => window.clearInterval(interval);
+  }, [world, environment]);
+
+  if (phase === "briefing" || phase === "victory" || phase === "defeat") return null;
+  return (
+    <div
+      className="pointer-events-none absolute right-5 top-24 z-30 border bg-black/55 backdrop-blur-sm"
+      style={{
+        borderColor: "rgba(0,242,255,0.25)",
+        boxShadow: "0 0 24px rgba(0,242,255,0.12)",
+        clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%)",
+      }}
+    >
+      <canvas ref={canvasRef} width={148} height={148} className="block" />
+      <div className="border-t border-cyan-400/15 px-2 py-1 text-center text-[7px] tracking-[0.3em] text-cyan-200/60">
+        SECTOR SCAN
+      </div>
+    </div>
   );
 }
 
@@ -1496,6 +1583,7 @@ export default function ArenaGame() {
         </Suspense>
       </Canvas>
       <Hud />
+      <MinimapHud world={world} runId={runId} />
       <FixerContractHud />
       <ComboMilestoneBanner />
       <BossCataclysmBanner />
