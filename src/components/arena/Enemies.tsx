@@ -19,7 +19,7 @@ import { bossArrivalTransmission, bossDefeatTransmission } from "@/data/arenaSto
 import { ARENA_BOSSES, isArenaBossTier } from "@/data/arenaBosses";
 import { arenaAudio } from "@/lib/arenaAudio";
 import { getArenaWaveState } from "@/lib/arenaWaves";
-import { useArenaSession } from "@/store/arenaSession";
+import { isArenaGameplayActive, useArenaSession } from "@/store/arenaSession";
 import {
   useArenaWorld,
   type ArenaWorld,
@@ -155,7 +155,7 @@ function Enemy({
     }
 
     const session = useArenaSession.getState();
-    if (session.phase !== "running") {
+    if (!isArenaGameplayActive(session)) {
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       return;
     }
@@ -591,7 +591,7 @@ export default function Enemies() {
 
   useFrame((_, dt) => {
     const session = useArenaSession.getState();
-    if (session.phase !== "running") return;
+    if (!isArenaGameplayActive(session)) return;
 
     const elapsed = ARENA_CONFIG.meta.durationSeconds - session.timeLeft;
     if (session.testJumpRevision !== lastTestJumpRevision.current) {

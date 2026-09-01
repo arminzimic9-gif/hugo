@@ -19,6 +19,13 @@ export type ArenaPhase =
 
 export type ArenaEnvironment = "surface" | "underground";
 
+// Story dijalozi pauziraju gameplay i preuzimaju fokus (Hades stil):
+// svi sistemi koji pokrecu borbu provjeravaju ovaj helper umjesto samo phase.
+export const isArenaGameplayActive = (state: {
+  phase: ArenaPhase;
+  storyTransmission: unknown;
+}): boolean => state.phase === "running" && !state.storyTransmission;
+
 export type ArenaRelicClass = "warrior" | "rogue" | "warlock";
 export type ArenaBossRewardId = "artifact_spark" | "class_augment" | "mythic_core";
 
@@ -501,6 +508,7 @@ export const useArenaSession = create<ArenaSessionState>()((set, get) => ({
   tick: (dt) => {
     const state = get();
     if (state.phase !== "running") return;
+    if (state.storyTransmission) return; // dijalog u fokusu — vrijeme stoji
     const scaledDt = dt * Math.max(1, state.testTimeScale);
     // Dok je stvarno spawnovana ("engaged") boss grupa neporazena, tajmer se drzi:
     // run ne smije isteci preko zivog bossa (Boss 3 bi inace bio nedostizan u 60s prozoru).
@@ -797,7 +805,7 @@ export const useArenaSession = create<ArenaSessionState>()((set, get) => ({
   activateAbility: (id) => {
     const ability = ARENA_ABILITIES.find((a) => a.id === id);
     const state = get();
-    if (!ability || state.phase !== "running") return false;
+    if (!ability || !isArenaGameplayActive(state)) return false;
     const now = performance.now();
     if ((state.abilityReadyAt[id] ?? 0) > now) return false;
     const params = ability.params as Partial<Record<string, number>>;

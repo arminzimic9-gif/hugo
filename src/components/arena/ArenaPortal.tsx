@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { Sparkles } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useGameStore } from "@/store/gameStore";
-import { useArenaSession } from "@/store/arenaSession";
+import { isArenaGameplayActive, useArenaSession } from "@/store/arenaSession";
 import { useArenaWorld } from "./world";
 
 const PORTAL_POSITION = new THREE.Vector3(0, 0, -10.5);
@@ -63,7 +63,7 @@ export default function ArenaPortal() {
     }
 
     const session = useArenaSession.getState();
-    if (session.environment !== "surface" || session.phase !== "running") return;
+    if (session.environment !== "surface" || !isArenaGameplayActive(session)) return;
     const dx = world.playerPosition.x - PORTAL_POSITION.x;
     const dz = world.playerPosition.z - PORTAL_POSITION.z;
     const distance = Math.hypot(dx, dz);

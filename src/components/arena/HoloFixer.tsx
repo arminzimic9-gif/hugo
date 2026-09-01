@@ -7,7 +7,7 @@ import * as THREE from "three";
 import ARENA_CONFIG from "@/data/arena-config.json";
 import { ARENA_CONTRACTS } from "@/data/arenaContracts";
 import { useGameStore } from "@/store/gameStore";
-import { useArenaSession } from "@/store/arenaSession";
+import { isArenaGameplayActive, useArenaSession } from "@/store/arenaSession";
 import { useArenaWorld } from "./world";
 
 const FIXER_MODEL = "/models/props/relay-tower.glb";
@@ -73,7 +73,7 @@ export default function HoloFixer() {
       groupRef.current.position.y = 1.25 + Math.sin(elapsed * 3.2) * 0.18;
     }
 
-    if (session.phase !== "running") return;
+    if (!isArenaGameplayActive(session)) return;
 
     if (!current && !session.activeContract && encounterIndex.current < ENCOUNTER_SECONDS.length) {
       if (elapsed < ENCOUNTER_SECONDS[encounterIndex.current]) return;

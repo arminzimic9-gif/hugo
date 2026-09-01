@@ -817,10 +817,18 @@ function StoryTransmissionHud() {
     ? ARENA_STORY_TRANSMISSIONS[transmissionId]
     : null;
 
+  // Dijalog pauzira igru i ceka igraca — nema auto-dismissa.
+  // Enter/Space/klik nastavljaju (Hades stil).
   useEffect(() => {
     if (!transmission) return;
-    const timeout = window.setTimeout(dismiss, transmission.durationMs);
-    return () => window.clearTimeout(timeout);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code === "Enter" || event.code === "Space") {
+        event.preventDefault();
+        dismiss();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [dismiss, transmission]);
 
   if (!transmission) return null;
@@ -844,16 +852,22 @@ function HadesStyleTransmission({
       : speaker.portrait;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-44 z-40 flex justify-center px-4">
+    <div className="pointer-events-auto fixed inset-0 z-40" role="presentation" onClick={onDismiss}>
+      {/* Fokus zavjesa: igra je pauzirana, dijalog je jedina svijetla tacka */}
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
+      <div className="absolute inset-x-0 bottom-24 flex justify-center px-4 sm:bottom-32">
       <div
         key={transmission.id}
         role="button"
         tabIndex={0}
-        onClick={onDismiss}
+        onClick={(event) => {
+          event.stopPropagation();
+          onDismiss();
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") onDismiss();
         }}
-        className="pointer-events-auto relative w-full max-w-3xl cursor-pointer text-left"
+        className="relative w-full max-w-3xl cursor-pointer text-left"
       >
         {portrait ? (
           <div
@@ -926,6 +940,7 @@ function HadesStyleTransmission({
           />
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -945,7 +960,7 @@ function EndOverlay({
   const session = useArenaSession();
   const credits = useGameStore((state) => state.stats.credits);
   const ownedSkills = useGameStore((state) => state.stats.skills);
-  const unlockSkill = useGameStore((state) => state.unlockSkill);
+  const purchaseQuickSkill = useGameStore((state) => state.purchaseQuickSkill);
   const endgameUnlocked = useGameStore((state) => state.stats.endgameUnlocked);
   const operativeCycles = useGameStore((state) => state.stats.operativeCycles);
   const activeClass = useGameStore((state) => state.hero.archetype);
@@ -1072,7 +1087,7 @@ function EndOverlay({
                   key={skill.id}
                   disabled={!affordable}
                   onClick={() => {
-                    if (unlockSkill(skill.id, skill.cost)) arenaAudio.sfx("pickup");
+                    if (purchaseQuickSkill(skill.id, skill.cost)) arenaAudio.sfx("pickup");
                   }}
                   className="border border-white/10 p-3 text-left transition-colors enabled:hover:border-cyan-300/60 enabled:hover:bg-white/5 disabled:opacity-35"
                 >
@@ -1478,6 +1493,7 @@ export default function ArenaGame() {
   const [testMode, setTestMode] = useState(false);
   const world = useMemo(() => createArenaWorld(), [runId]); // eslint-disable-line react-hooks/exhaustive-deps
   const phase = useArenaSession((s) => s.phase);
+  const storyFocusActive = useArenaSession((s) => s.storyTransmission !== null);
   const rewardsGranted = useArenaSession((s) => s.rewardsGranted);
   const heroArchetype = useGameStore((s) => s.hero?.archetype) ?? "vanguard";
   const pilotBody = useGameStore((s) => s.pilotBody);
@@ -1570,7 +1586,7 @@ export default function ArenaGame() {
       >
         <Suspense fallback={null}>
           <ArenaWorldContext.Provider value={world}>
-            <Physics paused={phase !== "running"}>
+            <Physics paused={phase !== "running" || storyFocusActive}>
               <ArenaScene
                 heroModel={heroModel}
                 heroAnimations={heroAnimations}

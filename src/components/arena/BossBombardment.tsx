@@ -7,7 +7,7 @@ import { Sparkles, useGLTF } from "@react-three/drei";
 import ARENA_CONFIG from "@/data/arena-config.json";
 import SPAWN_TABLE from "@/data/arena-spawn-tables.json";
 import { arenaAudio } from "@/lib/arenaAudio";
-import { useArenaSession } from "@/store/arenaSession";
+import { isArenaGameplayActive, useArenaSession } from "@/store/arenaSession";
 import { useArenaWorld } from "./world";
 
 const MISSILE_MODEL = "/models/projectiles/orbital-incendiary-missile.glb";
@@ -163,7 +163,7 @@ export default function BossBombardment() {
 
   useFrame(() => {
     const session = useArenaSession.getState();
-    if (session.phase !== "running") return;
+    if (!isArenaGameplayActive(session)) return;
     const elapsed = ARENA_CONFIG.meta.durationSeconds - session.timeLeft;
     for (const event of SPAWN_TABLE.scripted) {
       const count = 3 + event.count;

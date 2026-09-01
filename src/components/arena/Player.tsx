@@ -12,7 +12,7 @@ import type { ArenaOperatorDefinition } from "@/data/arenaOperators";
 import type { ArenaPilotAnimationSet } from "@/data/arenaPilots";
 import { arenaAudio } from "@/lib/arenaAudio";
 import { useGameStore } from "@/store/gameStore";
-import { useArenaSession, type ArenaRelicClass } from "@/store/arenaSession";
+import { isArenaGameplayActive, useArenaSession, type ArenaRelicClass } from "@/store/arenaSession";
 import { nearestEnemy, useArenaWorld, type ArenaControlMode } from "./world";
 
 const PLAYER = ARENA_CONFIG.player;
@@ -431,7 +431,7 @@ export default function Player({
       return;
     }
     const session = useArenaSession.getState();
-    const running = session.phase === "running";
+    const running = isArenaGameplayActive(session);
 
     const translation = body.translation();
     world.playerPosition.set(translation.x, translation.y, translation.z);

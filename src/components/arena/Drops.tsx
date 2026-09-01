@@ -15,6 +15,7 @@ import { arenaAudio } from "@/lib/arenaAudio";
 import {
   useArenaSession,
   type ArenaBossRewardId,
+  isArenaGameplayActive,
 } from "@/store/arenaSession";
 import { useGameStore } from "@/store/gameStore";
 import { useArenaWorld } from "./world";
@@ -272,7 +273,7 @@ export default function Drops() {
       !relicGlow
     ) return;
     const session = useArenaSession.getState();
-    const running = session.phase === "running";
+    const running = isArenaGameplayActive(session);
     const pickupRadius = ARENA_CONFIG.player.pickupRadius + session.mods.pickupRadiusAdd;
 
     if (running && !initialHealthSpawned.current) {

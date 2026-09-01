@@ -8,7 +8,7 @@ import ARENA_CONFIG from "@/data/arena-config.json";
 import ARENA_ENEMIES from "@/data/arena-enemies.json";
 import ARENA_PROJECTILES from "@/data/arena-projectiles.json";
 import { arenaAudio } from "@/lib/arenaAudio";
-import { useArenaSession } from "@/store/arenaSession";
+import { isArenaGameplayActive, useArenaSession } from "@/store/arenaSession";
 import {
   nearestEnemy,
   useArenaWorld,
@@ -324,7 +324,7 @@ export default function Projectiles({ playerAccent }: { playerAccent: string }) 
   useFrame((_, dt) => {
     if (performance.now() < world.hitStopUntil) return;
     const session = useArenaSession.getState();
-    const running = session.phase === "running";
+    const running = isArenaGameplayActive(session);
     const stepMs = dt * 1000;
 
     const playerMesh = playerMeshRef.current;

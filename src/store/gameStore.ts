@@ -114,6 +114,7 @@ export interface GameState {
     gearId: CraftingRecipeId | null
   ) => boolean;
   unlockSkill: (skillId: string, cost: number) => boolean;
+  purchaseQuickSkill: (skillId: string, creditCost: number) => boolean;
   unlockAchievement: (achievementId: string) => boolean;
   completeLevel: (levelCompleted: number) => void;
   setReplayLevel: (level: number) => void;
@@ -478,6 +479,23 @@ export const useGameStore = create<GameState>()(
             stats: {
               ...s.stats,
               skillPoints: s.stats.skillPoints - cost,
+              skills: [...s.stats.skills, skillId]
+            }
+          }));
+          return true;
+        }
+        return false;
+      },
+
+      // Quick skills na death/victory ekranu se placaju KREDITIMA iz runa
+      // (skill pointi ostaju rezervisani za permanent Skill Matrix na /skills).
+      purchaseQuickSkill: (skillId, creditCost) => {
+        const state = get();
+        if (state.stats.credits >= creditCost && !state.stats.skills.includes(skillId)) {
+          set((s) => ({
+            stats: {
+              ...s.stats,
+              credits: s.stats.credits - creditCost,
               skills: [...s.stats.skills, skillId]
             }
           }));
