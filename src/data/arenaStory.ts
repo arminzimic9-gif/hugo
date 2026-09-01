@@ -23,6 +23,31 @@ export type ArenaStoryTransmission = {
   durationMs: number;
 };
 
+// Hades-style dijalog prezentacija: ime + epitet + portret po govorniku.
+export const ARENA_STORY_SPEAKERS: Record<
+  ArenaStoryTransmission["speaker"],
+  { name: string; epithet: string; portrait: string | null; silhouette: boolean }
+> = {
+  HUGO: {
+    name: "HUGO",
+    epithet: "Last Human Signal",
+    portrait: "/images/hugo-operative-v1.png",
+    silhouette: false,
+  },
+  PILOT: {
+    name: "PILOT",
+    epithet: "Surface Operative",
+    portrait: null, // rezolvira se iz odabranog pilota (male/female)
+    silhouette: false,
+  },
+  UNKNOWN: {
+    name: "UNKNOWN",
+    epithet: "Signal Untraced",
+    portrait: "/images/pilots/pilot-male.png",
+    silhouette: true,
+  },
+};
+
 export const ARENA_STORY_TRANSMISSIONS: Record<
   ArenaStoryTransmissionId,
   ArenaStoryTransmission

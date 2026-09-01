@@ -28,7 +28,11 @@ import { ARENA_META_UNLOCKS } from "@/data/arenaMeta";
 import { ARENA_QUICK_SKILLS } from "@/data/arena-quick-skills";
 import { ARENA_CONTRACTS_BY_ID } from "@/data/arenaContracts";
 import { ARENA_POWER_DROPS } from "@/data/arenaPowerDrops";
-import { ARENA_STORY_TRANSMISSIONS, NEW_OPERATIVE_COPY } from "@/data/arenaStory";
+import {
+  ARENA_STORY_SPEAKERS,
+  ARENA_STORY_TRANSMISSIONS,
+  NEW_OPERATIVE_COPY,
+} from "@/data/arenaStory";
 import { ARENA_BOSSES } from "@/data/arenaBosses";
 import {
   ARENA_CLASSES,
@@ -576,13 +580,34 @@ function UpgradeOverlay({ onPicked }: { onPicked: (id: string) => void }) {
   return (
     <OverlayFrame>
       <div className="mb-1 text-[10px] tracking-[0.3em] text-gray-500">NEURAL LINK ESTABLISHED</div>
-      <div className="font-display mb-6 text-xl tracking-[0.2em]">SELECT SUPPORT LINK</div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="font-display mb-6 text-2xl tracking-[0.24em]">CHOOSE ONE:</div>
+      <div className="mx-auto flex max-w-2xl flex-col gap-3">
         {options.map((id) => {
           const upgrade = ARENA_UPGRADES.find((u) => u.id === id);
           if (!upgrade) return null;
           const visual = UPGRADE_VISUALS[id] ?? UPGRADE_VISUALS.precision;
           const Icon = visual.Icon;
+          const currentRank = ranks[id] ?? 0;
+          const nextRank = currentRank + 1;
+          // Evolution steering: pokazi igracu kojoj evoluciji ovaj izbor vodi.
+          const evolutionHint = ARENA_EVOLUTIONS.map((evolution) => {
+            const requirement = evolution.requirements.find((req) => req.id === id);
+            if (!requirement) return null;
+            const remaining = requirement.rank - nextRank;
+            if (remaining < 0) return null;
+            const partnerHints = evolution.requirements
+              .filter((req) => req.id !== id)
+              .map((req) => {
+                const partner = ARENA_UPGRADES.find((u) => u.id === req.id);
+                const partnerRemaining = req.rank - (ranks[req.id] ?? 0);
+                return { label: partner?.label ?? req.id, remaining: Math.max(0, partnerRemaining) };
+              });
+            const totalRemaining =
+              remaining + partnerHints.reduce((sum, partner) => sum + partner.remaining, 0);
+            return { evolution, totalRemaining };
+          })
+            .filter((hint): hint is NonNullable<typeof hint> => hint !== null)
+            .sort((a, b) => a.totalRemaining - b.totalRemaining)[0];
           return (
             <button
               key={id}
@@ -590,36 +615,73 @@ function UpgradeOverlay({ onPicked }: { onPicked: (id: string) => void }) {
                 chooseUpgrade(id);
                 onPicked(id);
               }}
-              className="group relative min-h-52 overflow-hidden border border-gray-800 p-4 text-left transition-all hover:-translate-y-1 hover:border-white/35"
+              className="group relative flex items-stretch gap-4 overflow-hidden border border-gray-800 p-4 text-left transition-all hover:scale-[1.015] hover:border-white/40"
               style={{
-                borderTopColor: upgrade.color,
-                borderTopWidth: 2,
-                background: `radial-gradient(circle at ${visual.anchor}, ${upgrade.color}24, transparent 48%), repeating-linear-gradient(${visual.pattern}, transparent 0 14px, ${upgrade.color}0b 15px 16px), #070a11`,
+                borderLeftColor: upgrade.color,
+                borderLeftWidth: 3,
+                background: `linear-gradient(100deg, ${upgrade.color}14, transparent 40%), repeating-linear-gradient(${visual.pattern}, transparent 0 14px, ${upgrade.color}08 15px 16px), #070a11`,
+                boxShadow: `inset 0 0 40px rgba(0,0,0,.45)`,
               }}
             >
-              <Icon
-                aria-hidden="true"
-                className="absolute -bottom-5 -right-4 h-28 w-28 opacity-[0.07] transition-transform group-hover:rotate-6 group-hover:scale-110"
-                style={{ color: upgrade.color }}
-                strokeWidth={1}
-              />
-              <div className="relative mb-5 flex items-start justify-between">
+              <div className="flex shrink-0 items-center">
                 <div
-                  className="flex h-12 w-12 items-center justify-center border bg-black/55"
-                  style={{ borderColor: `${upgrade.color}88`, boxShadow: `0 0 20px ${upgrade.color}22` }}
+                  className="flex h-16 w-16 rotate-45 items-center justify-center border bg-black/60 transition-transform group-hover:rotate-[50deg]"
+                  style={{
+                    borderColor: `${upgrade.color}aa`,
+                    boxShadow: `0 0 24px ${upgrade.color}33`,
+                  }}
                 >
-                  <Icon aria-hidden="true" className="h-6 w-6" style={{ color: upgrade.color }} />
+                  <Icon
+                    aria-hidden="true"
+                    className="h-7 w-7 -rotate-45"
+                    style={{ color: upgrade.color }}
+                  />
                 </div>
-                <div className="text-[8px] tracking-[0.3em] text-white/35">{visual.code}</div>
               </div>
-              <div className="relative text-[9px] tracking-[0.25em]" style={{ color: upgrade.color }}>
-                {upgrade.branch}
+              <div className="min-w-0 flex-1 py-0.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-display text-base tracking-[0.16em] text-white">
+                    {upgrade.label}
+                  </span>
+                  <span
+                    className="shrink-0 text-[9px] tracking-[0.3em]"
+                    style={{ color: upgrade.color }}
+                  >
+                    {upgrade.branch}
+                  </span>
+                </div>
+                <div className="mt-1.5 text-[11px] leading-relaxed text-gray-300">
+                  {upgrade.description}
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-1.5">
+                    {Array.from({ length: 5 }, (_, pip) => (
+                      <span
+                        key={pip}
+                        className="h-1.5 w-4"
+                        style={{
+                          background:
+                            pip < nextRank ? upgrade.color : "rgba(255,255,255,.12)",
+                          boxShadow: pip < nextRank ? `0 0 8px ${upgrade.color}66` : "none",
+                        }}
+                      />
+                    ))}
+                    <span className="ml-1 text-[8px] tracking-[0.24em] text-gray-500">
+                      RANK {nextRank}
+                    </span>
+                  </div>
+                  {evolutionHint ? (
+                    <span
+                      className="truncate text-[9px] tracking-[0.18em]"
+                      style={{ color: evolutionHint.evolution.color }}
+                    >
+                      {evolutionHint.totalRemaining === 0
+                        ? `▸ EVOLUCIJA SPREMNA · ${evolutionHint.evolution.label}`
+                        : `▸ ${evolutionHint.totalRemaining} DO ${evolutionHint.evolution.label}`}
+                    </span>
+                  ) : null}
+                </div>
               </div>
-              <div className="font-display relative mt-1 text-sm tracking-widest">{upgrade.label}</div>
-              <div className="relative mt-2 text-[10px] leading-relaxed text-gray-400">
-                {upgrade.description}
-              </div>
-              <div className="relative mt-3 text-[9px] text-gray-600">RANK {(ranks[id] ?? 0) + 1}</div>
             </button>
           );
         })}
@@ -675,39 +737,106 @@ function StoryTransmissionHud() {
   }, [dismiss, transmission]);
 
   if (!transmission) return null;
+  return <HadesStyleTransmission transmission={transmission} onDismiss={dismiss} />;
+}
+
+// Hades-style dijalog u sci-fi fazonu: veliki portret govornika koji izlazi iznad
+// okvira, name plate sa epitetom i uokvirena replika sa "continue" indikatorom.
+function HadesStyleTransmission({
+  transmission,
+  onDismiss,
+}: {
+  transmission: (typeof ARENA_STORY_TRANSMISSIONS)[keyof typeof ARENA_STORY_TRANSMISSIONS];
+  onDismiss: () => void;
+}) {
+  const pilotBody = useGameStore((state) => state.pilotBody);
+  const speaker = ARENA_STORY_SPEAKERS[transmission.speaker];
+  const portrait =
+    transmission.speaker === "PILOT"
+      ? `/images/pilots/pilot-${pilotBody}.png`
+      : speaker.portrait;
+
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-20 z-40 flex justify-center px-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-44 z-40 flex justify-center px-4">
       <div
         key={transmission.id}
-        className="pointer-events-auto w-full max-w-2xl border bg-[#03060c]/94 p-4 shadow-2xl backdrop-blur-md"
-        style={{
-          borderColor: `${transmission.color}70`,
-          boxShadow: `0 0 36px ${transmission.color}22`,
+        role="button"
+        tabIndex={0}
+        onClick={onDismiss}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") onDismiss();
         }}
+        className="pointer-events-auto relative w-full max-w-3xl cursor-pointer text-left"
       >
-        <div className="flex items-start justify-between gap-5 text-left">
-          <div className="min-w-0">
-            <div className="text-[8px] tracking-[0.32em]" style={{ color: transmission.color }}>
-              {transmission.chapter} · TRANSMISSION / {transmission.speaker}
-            </div>
-            <div className="font-display mt-1 text-lg tracking-[0.18em] text-white">
-              {transmission.title}
-            </div>
-            <div className="mt-2 text-[10px] leading-relaxed text-gray-300">
-              {transmission.body}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={dismiss}
-            className="shrink-0 border px-3 py-2 text-[8px] tracking-[0.22em] text-gray-400 transition-colors hover:text-white"
-            style={{ borderColor: `${transmission.color}45` }}
+        {portrait ? (
+          <div
+            className="absolute bottom-2 left-0 z-10 h-64 w-44 select-none"
+            style={{
+              WebkitMaskImage: "linear-gradient(to top, black 72%, transparent 98%)",
+              maskImage: "linear-gradient(to top, black 72%, transparent 98%)",
+            }}
           >
-            ACK
-          </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={portrait}
+              alt={speaker.name}
+              className="h-full w-full object-cover object-top"
+              style={
+                speaker.silhouette
+                  ? { filter: "brightness(0.16) saturate(0.15) contrast(1.5)" }
+                  : { filter: `drop-shadow(0 0 22px ${transmission.color}55)` }
+              }
+            />
+          </div>
+        ) : null}
+
+        <div
+          className="relative z-20 ml-36 inline-flex items-baseline gap-3 border bg-[#04070d]/95 px-5 py-2 backdrop-blur-md"
+          style={{
+            borderColor: transmission.color,
+            boxShadow: `0 0 24px ${transmission.color}33`,
+            clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%)",
+          }}
+        >
+          <span
+            className="font-display text-xl tracking-[0.24em] text-white"
+            style={{ textShadow: `0 0 14px ${transmission.color}88` }}
+          >
+            {speaker.name}
+          </span>
+          <span className="text-[9px] tracking-[0.28em]" style={{ color: transmission.color }}>
+            {speaker.epithet.toUpperCase()}
+          </span>
         </div>
-        <div className="mt-3 h-px overflow-hidden bg-white/10">
-          <div className="h-full w-full origin-left animate-pulse" style={{ background: transmission.color }} />
+
+        <div
+          className="relative ml-32 border bg-[#03060c]/95 py-5 pl-16 pr-8 backdrop-blur-md"
+          style={{
+            borderColor: `${transmission.color}80`,
+            boxShadow: `0 0 44px ${transmission.color}1f, inset 0 0 60px rgba(0,0,0,.5)`,
+            clipPath:
+              "polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%)",
+          }}
+        >
+          <div className="text-[8px] tracking-[0.32em] text-gray-500">
+            {transmission.chapter} · {transmission.title.toUpperCase()}
+          </div>
+          <div className="mt-2 max-w-[56ch] text-sm leading-relaxed text-gray-100">
+            {transmission.body}
+          </div>
+          <div
+            className="absolute bottom-2 right-4 animate-bounce text-xs"
+            style={{ color: transmission.color }}
+          >
+            ▼
+          </div>
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.05]"
+            style={{
+              background:
+                "repeating-linear-gradient(to bottom, transparent 0 2px, #ffffff 2px 3px)",
+            }}
+          />
         </div>
       </div>
     </div>
