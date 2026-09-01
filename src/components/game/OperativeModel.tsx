@@ -37,6 +37,7 @@ export default function OperativeModel({
     let height = 0;
     let rafId = 0;
     let lastFrameAt = 0;
+    let lastAnimationAt = performance.now();
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 40);
@@ -112,6 +113,7 @@ export default function OperativeModel({
     scene.add(key, rim, underGlow);
 
     let model: THREE.Object3D | null = null;
+    let mixer: THREE.AnimationMixer | null = null;
     const loader = new GLTFLoader();
     loader.load(
       modelUrl,
@@ -138,6 +140,14 @@ export default function OperativeModel({
         model.scale.setScalar(scale);
         model.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
         stage.add(model);
+        const idleClip =
+          gltf.animations.find((clip) => clip.name.toLowerCase() === "idle") ??
+          gltf.animations[0];
+        if (idleClip) {
+          mixer = new THREE.AnimationMixer(model);
+          mixer.clipAction(idleClip).reset().play();
+          lastAnimationAt = performance.now();
+        }
         setStatus("ready");
       },
       undefined,
@@ -176,6 +186,8 @@ export default function OperativeModel({
     const render = (now: number) => {
       rafId = requestAnimationFrame(render);
       if (!visible || !pageVisible || now - lastFrameAt < minFrameTime) return;
+      const animationDelta = Math.min(0.1, Math.max(0, (now - lastAnimationAt) / 1000));
+      lastAnimationAt = now;
       lastFrameAt = now;
       const time = (now - startedAt) / 1000;
       if (!reducedMotion) {
@@ -184,6 +196,7 @@ export default function OperativeModel({
         rim.intensity = 2.6 + Math.sin(time * 1.7) * 0.3;
       }
       controls.update();
+      mixer?.update(animationDelta);
       renderer.render(scene, camera);
     };
     rafId = requestAnimationFrame(render);
@@ -195,6 +208,7 @@ export default function OperativeModel({
       intersectionObserver.disconnect();
       document.removeEventListener("visibilitychange", onVisibilityChange);
       controls.dispose();
+      mixer?.stopAllAction();
       scene.traverse((object) => {
         const mesh = object as THREE.Mesh;
         mesh.geometry?.dispose();

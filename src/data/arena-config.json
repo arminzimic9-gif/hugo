@@ -6,20 +6,21 @@
     "accent": "#00f2ff",
     "danger": "#ff003c",
     "support": "#00ff88",
-    "durationSeconds": 60
+    "durationSeconds": 600
   },
   "world": {
     "districtSize": 40,
     "chunkRadius": 1,
     "propColliderHeight": 1.6,
-    "nodeChance": 0.36,
-    "maxPropsPerChunk": 2,
+    "nodeChance": 0.76,
+    "maxPropsPerChunk": 3,
     "maxPropHeight": 9,
     "projectileCullDistance": 60
   },
   "districts": [
     {
       "id": "neon-crossing",
+      "biome": "urban",
       "image": "/images/maps/arena/cyber-district-a.webp",
       "buildings": [
         [
@@ -50,6 +51,7 @@
     },
     {
       "id": "freight-grid",
+      "biome": "urban",
       "image": "/images/maps/arena/cyber-district-b.webp",
       "buildings": [
         [
@@ -98,6 +100,7 @@
     },
     {
       "id": "transit-ward",
+      "biome": "urban",
       "image": "/images/maps/arena/cyber-district-c.webp",
       "buildings": [
         [
@@ -137,6 +140,39 @@
           0.14
         ]
       ]
+    },
+    {
+      "id": "verdant-rift-yard",
+      "biome": "verdant-rift",
+      "image": "/images/maps/arena/verdant-rift-yard.webp",
+      "buildings": [
+        [0, 0, 0.2, 0.18],
+        [0.8, 0, 0.2, 0.2],
+        [0, 0.8, 0.22, 0.2],
+        [0.8, 0.78, 0.2, 0.22]
+      ]
+    },
+    {
+      "id": "flooded-rail-marsh",
+      "biome": "rail-marsh",
+      "image": "/images/maps/arena/flooded-rail-marsh.webp",
+      "buildings": [
+        [0, 0, 0.18, 0.18],
+        [0.82, 0, 0.18, 0.18],
+        [0, 0.82, 0.18, 0.18],
+        [0.82, 0.82, 0.18, 0.18]
+      ]
+    },
+    {
+      "id": "sunken-reservoir",
+      "biome": "reservoir",
+      "image": "/images/maps/arena/sunken-reservoir.webp",
+      "buildings": [
+        [0, 0, 0.16, 0.25],
+        [0.84, 0, 0.16, 0.28],
+        [0, 0.76, 0.18, 0.24],
+        [0.82, 0.76, 0.18, 0.24]
+      ]
     }
   ],
   "buildingHeight": 3.6,
@@ -175,6 +211,46 @@
       "accent": "#ff3bd4",
       "model": "/models/props/city-block.glb",
       "modelReady": true
+    },
+    {
+      "kind": "wall",
+      "radius": 2.4,
+      "accent": "#00f2ff",
+      "model": "/models/environment/cyber-wall-segment-v2.glb",
+      "modelReady": true,
+      "solid": true,
+      "colliderHalfExtents": [
+        2.25,
+        0.55
+      ]
+    },
+    {
+      "kind": "barrier",
+      "radius": 1.7,
+      "accent": "#ff8800",
+      "model": "/models/environment/transit-barrier-v2.glb",
+      "modelReady": true,
+      "solid": true,
+      "colliderHalfExtents": [
+        1.65,
+        0.45
+      ]
+    },
+    {
+      "kind": "extraction-gate",
+      "radius": 2.5,
+      "accent": "#00f2ff",
+      "model": "/models/environment/extraction-gate-v2.glb",
+      "modelReady": true,
+      "solid": false
+    },
+    {
+      "kind": "bridge-ramp",
+      "radius": 2.8,
+      "accent": "#00f2ff",
+      "model": "/models/environment/bridge-ramp-v2.glb",
+      "modelReady": true,
+      "solid": false
     }
   ],
   "camera": {
@@ -186,6 +262,13 @@
   "player": {
     "modelHeight": 1.8,
     "speed": 8.5,
+    "sprint": {
+      "speedMultiplier": 1.7,
+      "maxEnergy": 100,
+      "drainPerSecond": 32,
+      "regenPerSecond": 24,
+      "regenDelaySeconds": 0.7
+    },
     "radius": 0.55,
     "maxHealth": 100,
     "contactInvulnerabilityMs": 720,

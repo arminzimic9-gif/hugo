@@ -1,0 +1,12 @@
+{
+  "runner_boots": { "slot": "legs", "rarity": "common" },
+  "shadow_gloves": { "slot": "arms", "rarity": "common" },
+  "plasma_belt": { "slot": "core", "rarity": "rare" },
+  "titanium_chestplate": { "slot": "torso", "rarity": "rare" },
+  "gravity_boots": { "slot": "legs", "rarity": "rare" },
+  "neon_visor": { "slot": "head", "rarity": "epic" },
+  "void_cloak": { "slot": "torso", "rarity": "epic" },
+  "solar_ring": { "slot": "weapon", "rarity": "epic" },
+  "ancient_stabilizer": { "slot": "arms", "rarity": "legendary" },
+  "dragon_engine": { "slot": "core", "rarity": "legendary" }
+}

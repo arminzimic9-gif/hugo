@@ -9,8 +9,8 @@
     "score": 35,
     "contactDamage": 8,
     "fireIntervalMs": 2500,
-    "projectileSpeed": 8.5,
-    "projectileDamage": 8,
+    "projectileSpeed": 9.5,
+    "projectileDamage": 4,
     "preferredDistance": 8,
     "placeholder": {
       "shape": "octahedron",
@@ -31,8 +31,8 @@
     "score": 90,
     "contactDamage": 14,
     "fireIntervalMs": 2350,
-    "projectileSpeed": 7.3,
-    "projectileDamage": 12,
+    "projectileSpeed": 6.2,
+    "projectileDamage": 16,
     "preferredDistance": 13,
     "placeholder": {
       "shape": "box",
@@ -53,8 +53,8 @@
     "score": 60,
     "contactDamage": 10,
     "fireIntervalMs": 1450,
-    "projectileSpeed": 13,
-    "projectileDamage": 10,
+    "projectileSpeed": 15.5,
+    "projectileDamage": 8,
     "preferredDistance": 11,
     "placeholder": {
       "shape": "cone",
@@ -88,7 +88,7 @@
     "modelReady": true
   },
   "elite": {
-    "label": "ELITE",
+    "label": "BREACH BOSS",
     "behavior": "ranged",
     "health": 48,
     "speed": 1.6,
@@ -97,8 +97,8 @@
     "score": 650,
     "contactDamage": 20,
     "fireIntervalMs": 1850,
-    "projectileSpeed": 6.3,
-    "projectileDamage": 16,
+    "projectileSpeed": 4.8,
+    "projectileDamage": 18,
     "preferredDistance": 14,
     "placeholder": {
       "shape": "dodecahedron",
@@ -107,6 +107,72 @@
       "hoverHeight": 1.4
     },
     "model": "/models/enemies/arena-elite.glb",
+    "modelReady": true
+  },
+  "boss_axiom": {
+    "label": "AXIOM WARDEN",
+    "behavior": "ranged",
+    "health": 82,
+    "speed": 1.35,
+    "radius": 2.2,
+    "xp": 18,
+    "score": 1100,
+    "contactDamage": 28,
+    "fireIntervalMs": 2800,
+    "projectileSpeed": 6.2,
+    "projectileDamage": 16,
+    "preferredDistance": 15,
+    "placeholder": {
+      "shape": "dodecahedron",
+      "size": 2.8,
+      "color": "#42efff",
+      "hoverHeight": 1.2
+    },
+    "model": "/models/bosses/cyber-sentinel-boss1.glb",
+    "modelReady": true
+  },
+  "boss_gemini": {
+    "label": "GEMINI CHOIR",
+    "behavior": "ranged",
+    "health": 58,
+    "speed": 2.35,
+    "radius": 1.72,
+    "xp": 16,
+    "score": 950,
+    "contactDamage": 22,
+    "fireIntervalMs": 1950,
+    "projectileSpeed": 15.5,
+    "projectileDamage": 8,
+    "preferredDistance": 12,
+    "placeholder": {
+      "shape": "octahedron",
+      "size": 2.15,
+      "color": "#c06bff",
+      "hoverHeight": 1.1
+    },
+    "model": "/models/bosses/gemini-choir-boss2.glb",
+    "modelReady": true
+  },
+  "boss_crown": {
+    "label": "THE HOLLOW CROWN",
+    "behavior": "ranged",
+    "health": 74,
+    "speed": 1.18,
+    "radius": 2.05,
+    "xp": 20,
+    "score": 1250,
+    "contactDamage": 30,
+    "fireIntervalMs": 2650,
+    "projectileSpeed": 4.8,
+    "projectileDamage": 18,
+    "preferredDistance": 14,
+    "placeholder": {
+      "shape": "dodecahedron",
+      "size": 2.65,
+      "color": "#ffbd42",
+      "hoverHeight": 1.25
+    },
+    "model": "/models/bosses/hollow-crown-boss3.glb",
     "modelReady": true
   }
 }

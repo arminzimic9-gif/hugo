@@ -2,9 +2,15 @@ import { createContext, useContext } from "react";
 import * as THREE from "three";
 import type { RapierRigidBody } from "@react-three/rapier";
 import ARENA_ENEMIES from "@/data/arena-enemies.json";
+import ARENA_PROJECTILES from "@/data/arena-projectiles.json";
+import type { MaterialId } from "@/data/crafting";
+import type { ArenaPowerDropId } from "@/data/arenaPowerDrops";
+import type { ArenaBossRewardId } from "@/store/arenaSession";
 
 export type EnemyKind = keyof typeof ARENA_ENEMIES;
 export type EnemyDefinition = (typeof ARENA_ENEMIES)[EnemyKind];
+export type EnemyProjectileKind = keyof typeof ARENA_PROJECTILES;
+export type ArenaControlMode = "keyboard" | "mouse";
 
 export type EnemyHandle = {
   id: number;
@@ -18,6 +24,9 @@ export type PlayerProjectileOptions = {
   damage: number;
   bounces: number;
   bounceRange: number;
+  pierces: number;
+  projectileScale?: number;
+  projectileSpeedMult?: number;
 };
 
 export type EffectKind = "ring" | "burst" | "nova";
@@ -25,9 +34,28 @@ export type EffectKind = "ring" | "burst" | "nova";
 export type ArenaWorld = {
   playerBody: RapierRigidBody | null;
   playerPosition: THREE.Vector3;
+  playerAimDirection: THREE.Vector3;
   enemies: Map<number, EnemyHandle>;
   killsSinceCluster: number;
+  hitStopUntil: number;
+  shakeIntensity: number;
+  shakeUntil: number;
   spawnEffect: (kind: EffectKind, position: THREE.Vector3, color: string, scale?: number) => void;
+  spawnDamageNumber: (position: THREE.Vector3, damage: number, color?: string) => void;
+  spawnCombatText: (
+    position: THREE.Vector3,
+    text: string,
+    color?: string,
+    emphasis?: number
+  ) => void;
+  spawnComboSurge: (
+    position: THREE.Vector3,
+    color: string,
+    power: number,
+    onDetonate: () => void
+  ) => void;
+  triggerHitStop: (durationMs?: number) => void;
+  triggerScreenShake: (intensity: number, durationMs?: number) => void;
   firePlayerProjectile: (
     origin: THREE.Vector3,
     direction: THREE.Vector3,
@@ -36,23 +64,45 @@ export type ArenaWorld = {
   fireEnemyProjectile: (
     origin: THREE.Vector3,
     direction: THREE.Vector3,
-    speed: number,
-    damage: number,
-    color: string
+    kind: EnemyProjectileKind
   ) => void;
   spawnDrop: (position: THREE.Vector3, xp: number) => void;
+  spawnHealthDrop: (position: THREE.Vector3, health: number) => void;
+  spawnMaterialDrop: (position: THREE.Vector3, materialId: MaterialId, amount?: number) => void;
+  spawnPowerDrop: (position: THREE.Vector3, powerId: ArenaPowerDropId) => void;
+  spawnRelicDrop: (position: THREE.Vector3) => void;
+  spawnBossRewardDrop: (position: THREE.Vector3, rewardId: ArenaBossRewardId) => void;
 };
 
 export function createArenaWorld(): ArenaWorld {
   return {
     playerBody: null,
     playerPosition: new THREE.Vector3(),
+    playerAimDirection: new THREE.Vector3(0, 0, 1),
     enemies: new Map(),
     killsSinceCluster: 0,
+    hitStopUntil: 0,
+    shakeIntensity: 0,
+    shakeUntil: 0,
     spawnEffect: () => {},
+    spawnDamageNumber: () => {},
+    spawnCombatText: () => {},
+    spawnComboSurge: () => {},
+    triggerHitStop(durationMs = 42) {
+      this.hitStopUntil = Math.max(this.hitStopUntil, performance.now() + durationMs);
+    },
+    triggerScreenShake(intensity, durationMs = 140) {
+      this.shakeIntensity = Math.max(this.shakeIntensity, intensity);
+      this.shakeUntil = Math.max(this.shakeUntil, performance.now() + durationMs);
+    },
     firePlayerProjectile: () => {},
     fireEnemyProjectile: () => {},
     spawnDrop: () => {},
+    spawnHealthDrop: () => {},
+    spawnMaterialDrop: () => {},
+    spawnPowerDrop: () => {},
+    spawnRelicDrop: () => {},
+    spawnBossRewardDrop: () => {},
   };
 }
 

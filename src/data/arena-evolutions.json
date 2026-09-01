@@ -1,0 +1,68 @@
+[
+  {
+    "id": "storm-protocol",
+    "label": "STORM PROTOCOL",
+    "description": "Boltovi preskaču kroz cijelu grupu i ciklus paljbe prelazi u oluju.",
+    "color": "#75f7ff",
+    "requirements": [
+      { "id": "rapidfire", "rank": 5 },
+      { "id": "ricochet", "rank": 5 }
+    ],
+    "effects": { "fireIntervalMult": 0.72, "bouncesAdd": 4, "bounceRange": 16 }
+  },
+  {
+    "id": "siege-matrix",
+    "label": "SIEGE MATRIX",
+    "description": "Svaki drugi kill detonira dvostruki prsten razornih projektila.",
+    "color": "#ff6a24",
+    "requirements": [
+      { "id": "precision", "rank": 5 },
+      { "id": "cluster", "rank": 5 }
+    ],
+    "effects": { "damageMult": 1.45, "clusterEveryKills": 2, "clusterProjectilesAdd": 12 }
+  },
+  {
+    "id": "phase-lance",
+    "label": "PHASE LANCE",
+    "description": "Svaki bolt probija tri mete prije nego što se raspadne.",
+    "color": "#9a7dff",
+    "requirements": [
+      { "id": "precision", "rank": 5 },
+      { "id": "phaserush", "rank": 5 }
+    ],
+    "effects": { "damageMult": 1.25, "piercesAdd": 3 }
+  },
+  {
+    "id": "neural-tempest",
+    "label": "NEURAL TEMPEST",
+    "description": "Auto-fire postaje trostruki lepezasti rafal sa ubrzanim ciklusom.",
+    "color": "#ffcf40",
+    "requirements": [
+      { "id": "rapidfire", "rank": 5 },
+      { "id": "cluster", "rank": 5 }
+    ],
+    "effects": { "fireIntervalMult": 0.78, "multishotAdd": 2, "spreadRadians": 0.13 }
+  },
+  {
+    "id": "void-conductor",
+    "label": "VOID CONDUCTOR",
+    "description": "Uvećani core field napaja dugačke lance od šest skokova.",
+    "color": "#ff3bd4",
+    "requirements": [
+      { "id": "ricochet", "rank": 5 },
+      { "id": "magnet2", "rank": 5 }
+    ],
+    "effects": { "pickupRadiusAdd": 4, "bouncesAdd": 5, "bounceRange": 18 }
+  },
+  {
+    "id": "aegis-repeater",
+    "label": "AEGIS REPEATER",
+    "description": "Ojačani frame vraća integrity kroz killove i održava nemilosrdan rafal.",
+    "color": "#42ff9b",
+    "requirements": [
+      { "id": "barrier", "rank": 5 },
+      { "id": "rapidfire", "rank": 5 }
+    ],
+    "effects": { "fireIntervalMult": 0.62, "damageMult": 1.2, "healPerKill": 0.6 }
+  }
+]

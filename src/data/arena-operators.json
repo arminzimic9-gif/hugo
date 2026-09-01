@@ -1,0 +1,55 @@
+{
+  "vanguard": {
+    "className": "VANGUARD · WARRIOR",
+    "weaponName": "BASTION PROTOTYPE GREATSWORD",
+    "description": "Frontline class built around Guard, heavy cleaves and holding space. The prototype greatsword awakens into Aegis Breaker after Boss I.",
+    "unlockRun": 0,
+    "stats": {
+      "maxHealthAdd": 35,
+      "speedMult": 0.9,
+      "damageMult": 1.08,
+      "fireIntervalMult": 1.12,
+      "pickupRadiusAdd": 0.35,
+      "multishot": 1,
+      "spreadRadians": 0.11
+    },
+    "weapon": {
+      "projectileSpeedMult": 0.9,
+      "projectileScale": 1.28
+    }
+  },
+  "spectre": {
+    "className": "SPECTRE · ROGUE",
+    "weaponName": "WRAITH PROTOTYPE MONOBLADES",
+    "description": "Momentum assassin built around Edge, dashes and critical chains. The twin prototypes awaken into Night Circuit after Boss I.",
+    "unlockRun": 2,
+    "stats": {
+      "maxHealthAdd": -15,
+      "speedMult": 1.22,
+      "damageMult": 0.9,
+      "fireIntervalMult": 0.76,
+      "pickupRadiusAdd": 0.75
+    },
+    "weapon": {
+      "projectileSpeedMult": 1.16,
+      "projectileScale": 0.82
+    }
+  },
+  "vector": {
+    "className": "RIFTWEAVER · WARLOCK",
+    "weaponName": "RIFT PROTOTYPE GLAIVE",
+    "description": "Ranged control caster built around Flux, curses and life siphon. The prototype glaive awakens into Null Testament after Boss I.",
+    "unlockRun": 6,
+    "stats": {
+      "maxHealthAdd": -5,
+      "speedMult": 1.06,
+      "damageMult": 1.58,
+      "fireIntervalMult": 1.2,
+      "pierces": 1
+    },
+    "weapon": {
+      "projectileSpeedMult": 1.34,
+      "projectileScale": 1.08
+    }
+  }
+}

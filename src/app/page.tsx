@@ -8,6 +8,9 @@ import { useGameStore } from "@/store/gameStore";
 import { ACHIEVEMENTS } from "@/data/achievements";
 import TelemetryRing from "@/components/game/TelemetryRing";
 import { HEROES, HERO_ARCHETYPES, type HeroArchetype } from "@/data/heroes";
+import { ARENA_OPERATORS } from "@/data/arenaOperators";
+import { ARENA_PILOTS, ARENA_PILOT_BODIES, type ArenaPilotBody } from "@/data/arenaPilots";
+import { LockKeyhole } from "lucide-react";
 
 const OperativeModel = dynamic(() => import("@/components/game/OperativeModel"), {
   ssr: false,
@@ -19,8 +22,9 @@ export default function LoginTerminal() {
   const [showAchievements, setShowAchievements] = useState(false);
   const [stage, setStage] = useState<"identity" | "character">("identity");
   const [archetype, setArchetype] = useState<HeroArchetype>("vanguard");
+  const [pilotBody, setPilotBodyChoice] = useState<ArenaPilotBody>("male");
   const [codename, setCodename] = useState("NEON");
-  const { login, username, setHeroProfile, stats } = useGameStore();
+  const { login, username, setHeroProfile, setPilotBody, stats } = useGameStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -254,6 +258,7 @@ export default function LoginTerminal() {
       archetype,
       accent: style.accent,
     });
+    setPilotBody(pilotBody);
     setTimeout(() => {
       login(input.toUpperCase());
       router.push("/hub");
@@ -334,7 +339,7 @@ export default function LoginTerminal() {
             <div className="w-full max-w-3xl border border-gray-700 bg-black/60 px-5 py-5 backdrop-blur md:px-6 md:py-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                 <div className="border border-gray-800 p-4">
-                  <div className="font-mono text-[9px] uppercase tracking-[0.3em] text-gray-500 mb-2">Character Preview</div>
+                  <div className="font-mono text-[9px] uppercase tracking-[0.3em] text-gray-500 mb-2">Human Pilot Preview</div>
                   <div
                     className="relative h-64 overflow-hidden border bg-[#060809]"
                     style={{ borderColor: `${HEROES[archetype].accent}55` }}
@@ -345,37 +350,26 @@ export default function LoginTerminal() {
                       accent={HEROES[archetype].accent}
                       className="left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2"
                     />
-                    {HEROES[archetype].model ? (
-                      <OperativeModel
-                        key={archetype}
-                        modelUrl={HEROES[archetype].model}
-                        accent={HEROES[archetype].accent}
-                        label={HEROES[archetype].label}
-                        fallbackImage={HEROES[archetype].image}
-                        className="operative-signal-in"
-                      />
-                    ) : (
-                      <Image
-                        key={archetype}
-                        src={HEROES[archetype].image}
-                        alt={`${HEROES[archetype].label} operative preview`}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 320px"
-                        className="operative-signal-in object-cover object-center"
-                      />
-                    )}
+                    <OperativeModel
+                      key={pilotBody}
+                      modelUrl={ARENA_PILOTS[pilotBody].model}
+                      accent={HEROES[archetype].accent}
+                      label={ARENA_PILOTS[pilotBody].label}
+                      fallbackImage={ARENA_PILOTS[pilotBody].image}
+                      className="operative-signal-in"
+                    />
                     <div className="absolute inset-0 bg-black/18" />
                     <div className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-black/75 px-3 py-2 backdrop-blur-sm">
                       <div className="flex items-end justify-between gap-3">
                         <div>
                           <div className="font-display text-xs tracking-[0.2em]" style={{ color: HEROES[archetype].accent }}>
-                            {HEROES[archetype].label}
+                            {ARENA_PILOTS[pilotBody].label}
                           </div>
                           <div className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-gray-300">{codename}</div>
                         </div>
                         <div className="text-right font-mono text-[7px] uppercase tracking-[0.18em] text-gray-500">
-                          <div>{HEROES[archetype].chassis}</div>
-                          <div>{HEROES[archetype].role}</div>
+                          <div>HUMAN / UNDERSUIT</div>
+                          <div>{HEROES[archetype].label} CLASS</div>
                         </div>
                       </div>
                     </div>
@@ -396,23 +390,63 @@ export default function LoginTerminal() {
                     />
                   </div>
 
+                  <div>
+                    <div className="mb-2 font-mono text-[9px] uppercase tracking-[0.3em] text-gray-500">
+                      Pilot body
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ARENA_PILOT_BODIES.map((body) => {
+                        const pilot = ARENA_PILOTS[body];
+                        const selected = pilotBody === body;
+                        return (
+                          <button
+                            key={body}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => setPilotBodyChoice(body)}
+                            className="flex items-center gap-2 overflow-hidden border bg-black/35 p-2 text-left transition-colors"
+                            style={{ borderColor: selected ? HEROES[archetype].accent : "#1f2937" }}
+                          >
+                            <span className="relative h-12 w-10 shrink-0 overflow-hidden bg-black">
+                              <Image src={pilot.image} alt="" fill sizes="40px" className="object-cover object-top" />
+                            </span>
+                            <span>
+                              <span className="block font-display text-[10px] tracking-[0.12em] text-white">
+                                {body.toUpperCase()}
+                              </span>
+                              <span className="mt-1 block font-mono text-[7px] text-gray-500">PILOT BODY</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2">
                     {HERO_ARCHETYPES.map((key) => {
                       const style = HEROES[key];
+                      const unlocked = (stats.unlockedOperators ?? ["vanguard"]).includes(key);
                       return (
                       <button
                         key={key}
-                        onClick={() => setArchetype(key)}
+                        disabled={!unlocked}
+                        onClick={() => {
+                          if (unlocked) setArchetype(key);
+                        }}
                         className={`group overflow-hidden border text-left transition-colors ${
                           archetype === key ? "border-white bg-white/10" : "border-gray-800 bg-black/30 hover:border-gray-600"
-                        }`}
+                        } ${unlocked ? "" : "cursor-not-allowed opacity-40"}`}
                       >
-                        <div className="relative h-16 overflow-hidden bg-black">
-                          <Image src={style.image} alt="" fill sizes="120px" className="object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-                          <div className="absolute inset-0 bg-black/18" />
+                        <div className="relative flex h-16 items-center justify-center overflow-hidden bg-black">
+                          <span className="font-display text-3xl" style={{ color: style.accent }}>{style.label.slice(0, 1)}</span>
+                          {!unlocked ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/65">
+                              <LockKeyhole className="h-4 w-4 text-white/70" />
+                            </div>
+                          ) : null}
                         </div>
                         <div className="px-2 py-2 font-mono text-[8px] tracking-[0.1em]" style={{ color: style.accent }}>
-                          {style.label}
+                          {unlocked ? style.label : `RUN ${ARENA_OPERATORS[key].unlockRun}`}
                         </div>
                       </button>
                       );
@@ -435,7 +469,7 @@ export default function LoginTerminal() {
                       disabled={loading || !input.trim()}
                       className="flex-1 py-3 bg-red-600 text-white font-display text-lg tracking-[0.2em] uppercase hover:bg-red-500 disabled:opacity-40 transition-colors"
                     >
-                      {loading ? "Initializing..." : "Start Mission"}
+                      {loading ? "Initializing..." : "Enter Hub"}
                     </button>
                   </div>
                 </div>

@@ -6,29 +6,68 @@
     {
       "id": "breach",
       "label": "BREACH",
-      "untilSecond": 20,
-      "intervalStartMs": 660,
-      "intervalEndMs": 500,
-      "weights": { "drone": 70, "hunter": 20, "reaver": 10 }
+      "untilSecond": 90,
+      "intervalStartMs": 820,
+      "intervalEndMs": 540,
+      "weights": { "drone": 64, "hunter": 21, "reaver": 15 }
     },
     {
-      "id": "escalation",
-      "label": "ESCALATION",
-      "untilSecond": 44,
+      "id": "pressure",
+      "label": "PRESSURE",
+      "untilSecond": 180,
+      "intervalStartMs": 560,
+      "intervalEndMs": 410,
+      "weights": { "drone": 46, "hunter": 24, "reaver": 18, "heavy": 12 }
+    },
+    {
+      "id": "surge",
+      "label": "SURGE",
+      "untilSecond": 270,
       "intervalStartMs": 500,
-      "intervalEndMs": 320,
-      "weights": { "drone": 45, "hunter": 25, "reaver": 15, "heavy": 15 }
+      "intervalEndMs": 330,
+      "weights": { "drone": 38, "hunter": 27, "reaver": 19, "heavy": 16 }
+    },
+    {
+      "id": "collapse",
+      "label": "COLLAPSE",
+      "untilSecond": 360,
+      "intervalStartMs": 410,
+      "intervalEndMs": 280,
+      "weights": { "drone": 31, "hunter": 28, "reaver": 21, "heavy": 20 }
     },
     {
       "id": "overload",
       "label": "OVERLOAD",
-      "untilSecond": 60,
-      "intervalStartMs": 320,
-      "intervalEndMs": 190,
-      "weights": { "drone": 30, "hunter": 30, "reaver": 20, "heavy": 20 }
+      "untilSecond": 450,
+      "intervalStartMs": 360,
+      "intervalEndMs": 245,
+      "weights": { "drone": 25, "hunter": 30, "reaver": 23, "heavy": 22 }
+    },
+    {
+      "id": "singularity",
+      "label": "SINGULARITY",
+      "untilSecond": 540,
+      "intervalStartMs": 310,
+      "intervalEndMs": 205,
+      "weights": { "drone": 20, "hunter": 31, "reaver": 25, "heavy": 24 }
+    },
+    {
+      "id": "final-protocol",
+      "label": "FINAL PROTOCOL",
+      "untilSecond": 600,
+      "intervalStartMs": 245,
+      "intervalEndMs": 165,
+      "weights": { "drone": 16, "hunter": 32, "reaver": 26, "heavy": 26 }
     }
   ],
+  "breaks": [
+    { "startSecond": 170, "endSecond": 180, "label": "BOSS IMPACT INBOUND" },
+    { "startSecond": 350, "endSecond": 360, "label": "TWIN BOSS IMPACT INBOUND" },
+    { "startSecond": 530, "endSecond": 540, "label": "FINAL BOSS CATASTROPHE" }
+  ],
   "scripted": [
-    { "second": 44, "kind": "elite", "count": 1 }
+    { "second": 180, "kind": "boss_axiom", "count": 1, "bossTier": 1, "label": "AXIOM WARDEN BREACH" },
+    { "second": 360, "kind": "boss_gemini", "count": 2, "bossTier": 2, "label": "GEMINI CHOIR BREACH" },
+    { "second": 540, "kind": "boss_crown", "count": 3, "bossTier": 3, "label": "HOLLOW CROWN BREACH" }
   ]
 }

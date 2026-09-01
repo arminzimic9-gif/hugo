@@ -145,13 +145,15 @@ for (const asset of batch.assets) {
       (previewTask.consumed_credits ?? 5) + (task.consumed_credits ?? 10);
   } else {
     const referencePath = path.join(root, asset.reference);
+    const generationOptions = { ...config.imageTo3dDefaults, ...(asset.options ?? {}) };
+    if (asset.poseMode === null) delete generationOptions.pose_mode;
     const payload = {
-      ...config.imageTo3dDefaults,
+      ...generationOptions,
       image_url: await imageDataUri(referencePath),
       texture_image_url: await imageDataUri(referencePath),
     };
     requestSummary = {
-      ...config.imageTo3dDefaults,
+      ...generationOptions,
       image_url: "[local reference omitted]",
       texture_image_url: "[local reference omitted]",
     };

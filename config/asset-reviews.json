@@ -82,5 +82,143 @@
       "credits": 30,
       "notes": "Text-to-3d. Ceka odobrenje korisnika."
     }
+  },
+  "arena-city-kit": {
+    "cyber-tower-wide": {
+      "taskId": "01a051b5-e1cb-769a-8c25-207e80dcdfb2",
+      "status": "rejected",
+      "credits": 30,
+      "notes": "Odbijen: direktni text-to-3D ne prati art direction. Sacuvati master, ne koristiti u runtimeu."
+    },
+    "cyber-tower-tall": {
+      "taskId": "01a051b7-e335-706e-96cc-34448b602e2e",
+      "status": "rejected",
+      "credits": 30,
+      "notes": "Odbijen: direktni text-to-3D ne prati art direction. Sacuvati master, ne koristiti u runtimeu."
+    },
+    "industrial-warehouse": {
+      "taskId": "01a051b9-ed48-72a8-9d26-e329f2d02b27",
+      "status": "rejected",
+      "credits": 30,
+      "notes": "Odbijen: direktni text-to-3D ne prati art direction. Sacuvati master, ne koristiti u runtimeu."
+    },
+    "cyber-wall-segment": {
+      "taskId": "01a051bb-f862-7398-b8bb-a54ecaa93d98",
+      "status": "rejected",
+      "credits": 30,
+      "notes": "Odbijen: direktni text-to-3D ne prati art direction. Sacuvati master, ne koristiti u runtimeu."
+    },
+    "transit-barrier": {
+      "taskId": "01a051bd-f535-7349-9485-fe84d0375e2b",
+      "status": "rejected",
+      "credits": 30,
+      "notes": "Odbijen: direktni text-to-3D ne prati art direction. Sacuvati master, ne koristiti u runtimeu."
+    },
+    "extraction-gate": {
+      "taskId": "01a051bf-d6c3-7018-ab8a-c1dcbd257e20",
+      "status": "rejected",
+      "credits": 30,
+      "notes": "Odbijen: direktni text-to-3D ne prati art direction. Sacuvati master, ne koristiti u runtimeu."
+    },
+    "bridge-ramp": {
+      "taskId": "01a051c2-9964-7503-8075-edc9fb802080",
+      "status": "rejected",
+      "credits": 30,
+      "notes": "Odbijen: direktni text-to-3D ne prati art direction. Sacuvati master, ne koristiti u runtimeu."
+    }
+  },
+  "arena-approved-concepts-v2": {
+    "drone-plasma-bolt": {
+      "taskId": "01a051e4-75af-7435-984c-deae766fea86",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "heavy-siege-shell": {
+      "taskId": "01a051e5-e5a4-7610-a134-b9c72cc13b39",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "hunter-ion-needle": {
+      "taskId": "01a051e7-7a0b-75da-9753-4afd2353d97d",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "elite-singularity-mine": {
+      "taskId": "01a051e9-1b56-75e5-bdbe-aa1c505fd9d3",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "data-core-v2": {
+      "taskId": "01a051eb-37c5-759d-8954-dfc05aad15b8",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "cyber-tower-wide-v2": {
+      "taskId": "01a051ed-3449-7348-b5aa-1b70447457d7",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "cyber-tower-tall-v2": {
+      "taskId": "01a051ef-1139-714b-b817-70f779ce5c7d",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "industrial-warehouse-v2": {
+      "taskId": "01a051f0-bcaa-71c2-ab6e-feb9f57a3bc4",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "cyber-wall-segment-v2": {
+      "taskId": "01a051f2-a47e-7455-bc67-d44408e785c9",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "transit-barrier-v2": {
+      "taskId": "01a051f4-57a0-762f-ba90-95aba9addcaf",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "extraction-gate-v2": {
+      "taskId": "01a051f6-077b-760a-999d-ddd060231724",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    },
+    "bridge-ramp-v2": {
+      "taskId": "01a051f7-c0f2-77f6-b7ec-81b0b5d94c6d",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Runtime V2 odobrio korisnik 30.08.2026."
+    }
+  },
+  "arena-relic-weapons-v1": {
+    "relic-warrior-greatsword": {
+      "taskId": "01a056b4-86e2-7258-9b62-bae875b92499",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Korisnik unaprijed odobrio asset batch 31.08.2026; master i web runtime sacuvani odvojeno."
+    },
+    "relic-rogue-monoblade": {
+      "taskId": "01a056b6-4806-7396-a161-67c567bd02f6",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Jedan model se duplira kao Rogue twin-blade par; korisnik unaprijed odobrio 31.08.2026."
+    },
+    "relic-warlock-glaive": {
+      "taskId": "01a056b7-d9e9-746f-b681-0529d0ffcf6e",
+      "status": "accepted",
+      "credits": 15,
+      "notes": "Korisnik unaprijed odobrio asset batch 31.08.2026; master i web runtime sacuvani odvojeno."
+    }
   }
 }

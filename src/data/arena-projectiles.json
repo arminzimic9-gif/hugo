@@ -1,0 +1,57 @@
+{
+  "drone": {
+    "label": "TWIN PLASMA BOLT",
+    "model": "/models/projectiles/drone-plasma-bolt.glb",
+    "pattern": "twin",
+    "orientation": "forward",
+    "modelLength": 1.05,
+    "collisionRadius": 0.2,
+    "lifeMs": 4200,
+    "lateralOffset": 0.22,
+    "spreadRadians": 0.035,
+    "impactEffect": "burst",
+    "impactScale": 0.42,
+    "haloScale": 1.45,
+    "accent": "#00f2ff"
+  },
+  "heavy": {
+    "label": "SIEGE SHELL",
+    "model": "/models/projectiles/heavy-siege-shell.glb",
+    "pattern": "single",
+    "orientation": "forward",
+    "modelLength": 1.1,
+    "collisionRadius": 0.42,
+    "lifeMs": 5200,
+    "impactEffect": "nova",
+    "impactScale": 1.35,
+    "haloScale": 1.5,
+    "accent": "#ff5a24"
+  },
+  "hunter": {
+    "label": "ION NEEDLE",
+    "model": "/models/projectiles/hunter-ion-needle.glb",
+    "pattern": "single",
+    "orientation": "forward",
+    "modelLength": 1.35,
+    "collisionRadius": 0.13,
+    "lifeMs": 3600,
+    "impactEffect": "burst",
+    "impactScale": 0.5,
+    "haloScale": 1.3,
+    "accent": "#ff3bd4"
+  },
+  "elite": {
+    "label": "SINGULARITY MINE",
+    "model": "/models/projectiles/elite-singularity-mine.glb",
+    "pattern": "radial",
+    "orientation": "omni",
+    "modelLength": 1.05,
+    "collisionRadius": 0.4,
+    "lifeMs": 5600,
+    "burstCount": 6,
+    "impactEffect": "nova",
+    "impactScale": 1.6,
+    "haloScale": 1.7,
+    "accent": "#ff003c"
+  }
+}

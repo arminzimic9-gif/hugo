@@ -1,0 +1,203 @@
+Strategija · 30.08.2026
+HUGO
+Protokol zavisnosti
+Kako od onoga što imamo napraviti igru koja drži igrača u petlji i zarađuje. Analiza stanja, šta se siječe, formula zavisnosti i prodajni plan — sve spremno da drugi agent preuzme i gradi.
+
+01
+Proizvod je arena, sve ostalo je balast. Prodajemo neon survivor u žanru Vampire Survivors — najprofitabilnijem indie žanru zadnjih godina. Kampanja, cursor shop i legacy rute se ne shipaju.
+02
+Najveća rupa je zvuk, ne grafika. Grafika je već prodajna. Bez muzike i SFX-a nema dopamina — to je prioritet br. 1, prije ijednog novog sistema.
+03
+Put do para: web = laboratorija, Unreal Engine = release. Dizajn se dokazuje i testira na webu (brza iteracija), pa se poslije content locka portuje u UE 5 za moćan finalni izgled i Steam launch. Web verzija ostaje besplatni demo koji pumpa wishlistove. Bez pay-to-win.
+Sekcija 1
+Šta imamo — inventar i presuda
+Prošao sam sve sisteme u repou. Presuda za svaki: pojačaj je srce proizvoda, zadrži radi ali nije fokus, izbaci ne ulazi u proizvod koji prodajemo.
+
+Sistem	Stanje	Presuda
+3D Arena (core loop)	Beskonačna district mapa, 5 neprijatelja sa Meshy 3D modelima, auto-fire, upgradeovi, QERF moći, efekti. Radi.	Pojačaj
+Vizuelni identitet	Neon cyberpunk, bloom, district art. Ovo je već marketing materijal — klipovi iz igre su share-able.	Pojačaj
+Skill tree (~40 skillova)	Dobra kost za meta-progresiju, ali vezan za mrtvu kampanju. Treba ga prevezati na arenu kao trajni "account progres".	Zadrži
+Crafting (10 materijala)	Već daje pasivne bonuse u areni. Dobar "razlog za još jedan run" kad materijali padaju u igri.	Zadrži
+3 operativca (GLB)	Vanguard/Spectre/Vector — gotovi modeli. Trenutno kozmetika; treba da postanu klase sa različitim oružjima.	Pojačaj
+Meshy pipeline	Dokazan (10 modela, ~1MB po komadu). Fabrika sadržaja za bossove i nove neprijatelje.	Zadrži
+Kampanja (/play, 4.600 linija)	7 tipova levela, boss fightovi — zamrznuta. Održavanje bi pojelo mjesece, a žanr joj je zastario.	Izbaci
+Cursor Garage	Shop kursora ne doprinosi core loopu. Kredite preusmjeriti na skinove operativaca.	Izbaci
+2D arena (/arena-legacy)	Interna referenca, ne shipa se.	Izbaci
+Bonus sektori 99/100, boss test	Dio zamrznute kampanje.	Izbaci
+Zvuk	Ne postoji (sintetički beep iz kampanje). Najveći pojedinačni nedostatak proizvoda.	Kritično
+Backend / cloud save	Ne postoji — progres u localStorage. Za leaderboard i daily run trebaće Firebase (config već postoji u repou).	Kasnije
+"Izbaci" ne znači obriši — kod ostaje u gitu (tag pre-arena-pivot). Znači: ne trošimo ni sat rada na to, ne shipamo, ne spominjemo u marketingu.
+
+Sekcija 2
+Formula zavisnosti
+Žanr je riješen problem — Vampire Survivors, Brotato i 20 Minutes Till Dawn su dokazali istu petlju. Naš posao nije da izmislimo novu, nego da je izvedemo bez rupa:
+
+Run
+→
+Build raste u runu
+→
+Smrt / pobjeda
+→
+Trajni unlock
+→
+"Još jedan run"
+↺
+2.1 · Run mora trajati 8–12 minuta, ne 60 sekundi
+Trenutnih 60s je demo, ne igra. Zavisnost nastaje kad build eskalira: prve 2 minute si slab, u petoj kosiš stotine, u desetoj te mapa guši i umireš za dlaku. Talasi rastu, svakih ~3 minute dolazi mini-boss momenat (Meshy roadmap već ima 7 boss koncepata). Smrt mora izgledati kao tvoja greška u buildu, ne kao istek štoperice — to je razlika između "još jedan run" i "zatvori tab".
+
+2.2 · Sinergije i evolucije oružja — glavni dopamin
+Sedam postojećih upgradeova su začin, ali nema glavnog jela: evolucija. Formula iz žanra: oružje na max rank + odgovarajući pasiv = novo, spektakularno oružje (Ricochet max + Rapid Fire max → "Storm Protocol": munje lančano skaču — Lightning efekat već postoji u repou!). Igrač mora imati razlog da kaže "u ovom runu jurim TU kombinaciju". 5–6 evolucija je dovoljno za launch.
+
+2.3 · Meta-drip: svaki od prvih 10 runova nešto otključa
+Run 1 → novi upgrade u poolu · Run 2 → Spectre (nova klasa) · Run 3 → nova moć na Q…
+Operativci = klase: Vanguard tenk (više HP, sporiji), Spectre brzina (dash), Vector precision (kritovi). Modeli su već gotovi — treba samo statove razdvojiti u JSON-u.
+Skill tree postaje trajna "account" progresija koja se troši kreditima iz runova — most između runova koji već imamo napisan.
+Krediti od kursora se preusmjere u skinove operativaca (Meshy retexture = jeftin sadržaj).
+2.4 · Juice — osjećaj u ruci
+Zvuk (P0): synthwave muzika koja ubrzava s talasima + SFX za hit/kill/pickup/level-up. Bez ovoga ništa drugo ne radi.
+Damage numbers koji iskaču iz neprijatelja, screen shake na eksplozije, hit-stop (2–3 frejma pauze na kill) — jeftino, a nosi 50% osjećaja.
+Kill streak combo brojač sa zvukom koji raste — pritisak da se ne prekine niz.
+2.5 · Razlozi za povratak sutra
+Daily run: isti seed za sve igrače (deterministički chunkovi to već omogućavaju!), jedan pokušaj, leaderboard.
+High-score po operativcu + achievementi vezani za arenu.
+Sedmični modifikator ("ovu sedmicu reaveri su 2× brži, XP 2×").
+Sekcija 3
+Susreti u runu — Breach, Forge & Fixer
+Tri tipa "susreta" dijele isti spawn sistem na mapi: mini-igra, kovačnica, ugovor. Igrač nikad ne zna šta će sljedeće naći — varijabilna nagrada u čistom obliku.
+
+Zamrznuta kampanja (4.600 linija gotovih nivoa) se reciklira u bonus sadržaj unutar arene. Ovo je dokazan pattern žanra (Hades portali, VS skriveni nivoi) i naš USP: "survivor igra koja u sebi krije mini-igre" — rečenica za trailer.
+
+BREACH NODE spawn u areni
+→
+Igrač bira: uđi ili ignoriši (10s)
+→
+Glitch + CRT prelaz
+→
+Mini-igra 20–30s
+→
+Lud bonus + trajni unlock
+Pravila koja čuvaju tempo
+Kratko: kondenzovana verzija nivoa, 20–30 sekundi max — nikad cijeli nivo.
+Opcionalno: portal stoji ~10s pa nestaje; arena se pauzira dok si unutra — bez kazne za ulazak.
+Uokvireno kao hakovanje: glitch tranzicija + CRT filter — prelaz 3D→2D postaje fora, ne bug.
+Samo 3 tipa nivoa: GD, ninja i laser rade u kratkoj formi. Chess i snail ne staju u 30s — preskaču se.
+Nagrade i kolekcija
+Uspješan breach = lud bonus: instant evolucija oružja, rijedak materijal ili XP bomba — dovoljno jak da se rizik isplati, ali opcionalan da ne hendikepira one koji preskoče.
+Svaki pređeni breach se trajno otključava u hubu kao "Neural Archive" — arkadna kolekcija sa high scoreovima. Još jedan razlog za povratak.
+Forge Node — kovanje usred runa
+Drugi tip portala, dijeli isti portal sistem sa Breachom: FORGE NODE gdje igrač troši materijale skupljene u tom runu i kuje item na licu mjesta. Item se odmah aktivira (power spike usred borbe) i ostaje trajno poslije runa — crafting sistem i gear bonusi u areni već postoje, treba samo portal i UI panel.
+
+Materijali postaju uzbudljivi tokom runa: igrač juri heavy/elite neprijatelje zbog dropova ("još 2 plasma core-a za Dragon Engine").
+Odluka "potroši sad ili štedi za bolji recept" — dokazani mid-run shop momenat (Hades, Brotato).
+Arena se pauzira dok je panel otvoren, isto pravilo kao Breach.
+Holo-Fixer — ugovori koji run čine sve luđim
+Lebdeći dron/hologram (bez rigginga — pipeline to već može) koji se pojavi na mapi. Priđeš mu → jedna linija, ugovor se automatski prihvata — nikakav dijalog, tempo netaknut:
+
+Čišćenje: ubij 15 neprijatelja za 30s · Ghost run: preživi 20s bez štete · Žetva: 10 core-ova za 25s · Egzekucija: ubij elite prije isteka · Odbrana: brani fixera 15s dok hakuje
+Nagrade eskaliraju ludilo do kraja runa: XP bomba (instant 2–3 levela), +50% damage koji se stackuje po odrađenom ugovoru, instant evolucija, rijedak materijal za Forge.
+Neuspjeh = bez kazne — samo propuštena prilika. Kažnjavanje bi ubilo želju da se fixeru uopšte prilazi.
+Rezultat: run počne normalno, a završi kao vatromet — krivulja "svakim minutom luđe" pravi TikTok klipove sama od sebe.
+Weapon dropovi — GTA momenat
+Lebdeće oružje koje rotira i svijetli (GTA 3 / Vice City estetika — savršena za naš neon), zrak svjetla prema nebu da se vidi izdaleka, blinka zadnjih 5s prije nestanka. Spawn: random na mapi + garantovano iz elite killa.
+
+Pokupljeno = privremeni overdrive preko auto-fire-a, 20–30s, pa se vraćaš na svoj build: MINIGUN (rafalna kiša), RAILGUN (probija sve u liniji), PLAMENOBACAČ (konus + burn), SEEKER ROJ (samonavodeće rakete).
+Zašto privremeno: ne dira build/gear slotove, nula UI-ja — pokupiš i odmah ludilo. Trajno oružje bi se tuklo sa upgrade/evolucijama; privremeno ih dopunjuje i pravi "OTRČI PO TO!" momente.
+Jeftino: spawn + tajmer + override fire logike koja već postoji. Modeli: low-poly + glow, bez Meshy troška (opcioni pass kasnije).
+Skill tree ostaje IZMEĐU runova — namjerno
+Skill tree je trajna progresija i njegov momenat je poslije smrti: pogineš → potrošiš kredite → uđeš jači → "još jedan run". Uvlačenje skill tree-a u run bi ubilo taj loop i pomiješalo dvije ekonomije. Umjesto toga: quick skill panel na death/victory ekranu — odmah vidiš šta možeš kupiti kreditima koje si upravo zaradio, jedan klik, RE-DEPLOY. Ista želja (upgrade bez lutanja po menijima), ali na mjestu koje petlju pojačava umjesto da je lomi.
+
+Redoslijed je zakon
+Breach i Forge idu tek POSLIJE P0 (zvuk, dužina runa, evolucije) — planirati kao P2, jer se nivoi vade iz monolita u samostalne module. Fixer ugovori su izuzetak i idu u P1: čista logika + UI bez vađenja nivoa, a direktno pojačavaju core loop. Quick skill panel je najjeftiniji i ide uz death recap u P0.
+Sekcija 4
+Gear & Loot — Diablo kuka
+Bossevi dropaju gear kojim se operativci upgrejduju. Najjači dopamin momenat u gamingu — a pola sistema već postoji (arena-gear-mods.json daje pasivne bonuse craftanih itema u areni). Ne gradimo novo, dižemo postojeće na loot nivo.
+
+Jedan sistem, dva izvora
+Isti itemi se mogu skovati (Forge / materijali) ili dropati sa bossa — jedna ekonomija, ne dva konfuzna sistema.
+Bossevi imaju ekskluzivne komade koji se ne mogu skovati — jedini razlog za boss farming.
+Rarity tierovi, ne random statovi
+Common / Rare / Epic / Legendary kao množioci na istom itemu (Rare Dragon Engine = 1.5× bonus). Čitljivo za igrača, balansira se u JSON-u za sat — a ne Diablo random affixi koji su za solo tim mjeseci balansa. Boss dropovi roluju više tierove.
+
+3 slota po operativcu — tu nastaju buildovi
+Umjesto da se sve stackuje pasivno: svaki operativac ima slotove ORUŽJE MOD / FRAME / MODUL. Odluke ("Vanguard tenk, Spectre glass cannon"), razlog da se igraju sve tri klase i juri gear za svaku.
+
+Signature itemi — chase momenat
+Overseer → "Evil Eye": 10% šanse da pogodak ispali laser
+Magma Forge → meci pale neprijatelje (burn DoT)
+Void Archon → kill ima šansu da povuče okolne neprijatelje u vrtlog
+Twist mehanike, ne suvi statovi — zbog ovih itema se boss farma 10 puta i prave se klipovi.
+Bad luck zaštita
+Boss UVIJEK dropa nešto; prvi kill svakog bossa garantuje njegov signature. Prazan boss kill = izbrisan run u očima igrača.
+
+Scope zamka
+Bez inventory Tetrisa — nikakvo upravljanje torbom, samo lista itema i 3 slota. Bez random affixa. Sve preko toga jede mjesece i ne dodaje zavisnost. Redoslijed: unifikacija + slotovi u P1 (uz "operativci kao klase"), boss dropovi + signature itemi u P2 (čekaju prvog bossa iz P1).
+Sekcija 5
+Roadmap za agenta koji gradi
+P0 · Prije svega
+Osjećaj i dužina runa
+Audio sistem: muzika + 8–10 SFX-ova (WebAudio, asseti sa Pixabay/Freesound CC0)
+Run 8–12 min: wave director u arena-spawn-tables.json (talasi, pauze, eskalacija, mini-boss na 3/6/9 min)
+Damage numbers, screen shake, hit-stop, combo brojač
+5–6 evolucija oružja u arena-upgrades.json
+Death recap ekran: šta te ubilo, koliko je build napredovao, dugme RE-DEPLOY na Enter + quick skill panel (potroši kredite odmah, bez odlaska u hub)
+P1 · Odmah poslije
+Meta i sadržaj
+Operativci kao klase (statovi + startno oružje po operativcu u JSON-u)
+Meta-drip unlock tabela (prvih 10 runova)
+Skill tree prevezan na arenu; cursor krediti → skinovi
+Gear unifikacija: rarity tierovi + 3 slota po operativcu (vidi Sekciju 4)
+Holo-Fixer ugovori: timed mini-ciljevi u runu sa eskalirajućim nagradama (vidi Sekciju 3) — dron model može biti postojeći relay sa hologram efektom ili jedna Meshy generacija (~30 kr, uz odobrenje)
+Weapon dropovi: rotirajuće svjetleće oružje, privremeni overdrive 20–30s — minigun, railgun, plamenobacač, seeker roj (vidi Sekciju 3)
+Prvi pravi boss u areni (Meshy: Evil Eye Overseer koncept već postoji)
+Materijali padaju u runu (heavy/elite bolji dropovi) → crafting petlja živa
+P2 · Za launch
+Distribucija i retencija
+Portali u runu: Breach (3 mini-igre iz kampanje + Neural Archive) i Forge Node (kovanje materijala usred runa) — dijele portal sistem (vidi Sekciju 3)
+Boss loot: garantovani dropovi, viši rarity tierovi, signature itemi sa twist mehanikama (vidi Sekciju 4)
+Daily run + leaderboard (Firebase — .firebaserc čeka pravi projekat)
+Steam build: Tauri wrapper oko postojećeg static exporta
+Settings: volume, screen shake off, performanse; pauza na Esc
+Steam achievementi, cloud save
+Šta NE raditi
+Ne dirati kampanju. Ne dodavati nove sisteme dok P0 nije gotov — svaki novi sistem prije zvuka i wave directora je odgađanje proizvoda. Ne trošiti Meshy kredite bez odobrenja (balans: 1.075). Ne raditi mobile dok se ta traka ne otvori.
+Sekcija 6
+Put do releasa — web laboratorija, Unreal isporuka
+Odluka: igra izlazi kroz Unreal Engine 5 radi moćnog finalnog izgleda (Lumen neon osvjetljenje, Niagara partikli, vrata ka konzolama). Ali dizajn se NE pravi u UE — pravi se i dokazuje na webu, gdje je iteracija 10× brža. Najskuplja stvar u game devu je otkrivanje šta je zabavno; to otkrivanje radimo tamo gdje je jeftino.
+
+Faza A · Web laboratorija
+Sada · 4–6 sedmica
+P0 + P1 na postojećem stacku. Content lock kapija: interni test (3 runa zaredom iz gušta) + soft launch na itch.io/portalima (runova po sesiji ≥ 3). Dok kapija ne prođe, u UE se ne ide.
+
+Faza B · UE 5 port
+2–4 mjeseca
+UE MCP se spaja na početku ove faze. JSON balans → DataTables direktno; Meshy masteri iz Assets/originals/ se uvoze čisto; prepisuje se samo logika (sistemi se mapiraju 1:1). Napomena: dev na Macu radi, Windows build za Steam traži Windows mašinu ili cloud build.
+
+Faza C · Release
+$4.99–7.99
+UE verzija na Steam — premium, bez mikrotransakcija; sa UE grafikom cijena može i više od žanrovskog standarda. Web verzija postaje besplatni demo/prolog na portalima (Poki, CrazyGames) koji pumpa wishlistove — cilj 7.000+ prije launcha + Next Fest.
+
+Ukupan realan put do releasa: ~4–6 mjeseci. Ništa iz Faze A nije bačeno — balans, asseti i dizajn se prenose u UE; web i UE su dvije verzije istog dizajna. Breach mini-igre, boss loot i daily run mogu se graditi direktno u UE verziji tokom Faze B.
+
+Marketing koji košta 0 KM
+TikTok / YouTube Shorts: 15–30s klipovi najludjih momenata (nova evolucija, ekran pun neprijatelja, near-death bijeg). Neon estetika je rođena za ovaj format — 3 klipa sedmično, konzistentno.
+Devlog nit: "solo dev iz Bosne pravi neon survivor" — proces prodaje jednako kao proizvod (Reddit r/IndieDev, X).
+Streameri: 20–30 ključeva mikro-streamerima koji igraju VS/Brotato — žanr publika je najlakša konverzija.
+Trailer 30s: gameplay bez teksta prvih 10 sekundi, evolucija oružja kao punchline.
+Brojevi kojima mjerimo zavisnost
+Metrika	Cilj	Šta znači
+Runova po sesiji	≥ 3	Petlja "još jedan run" radi
+Dužina sesije	≥ 25 min	Run dužina i eskalacija su pogođeni
+D1 retencija	≥ 30%	Meta-drip vuče nazad
+Demo → wishlist	≥ 8%	Proizvod se prodaje sam
+Mjerenje: prosti event log (run start/end, dužina, uzrok smrti) — može u localStorage pa u Firebase kad backend dođe.
+
+Sekcija 7
+Prvih 30 dana
+Sedmica 1: P0 komplet — zvuk, wave director, juice, evolucije, death recap
+Sedmica 2: P1 — klase, meta-drip, prvi boss; interno testiranje: "da li igram 3 runa zaredom bez prisile?"
+Sedmica 3: itch.io soft launch + prva 3 TikTok klipa; Steam page live sa trailerom
+Sedmica 4: feedback → balans; odluka o imenu/brendu; demo build za portale
+Test zavisnosti je brutalan i jednostavan: ako ti sam ne odigraš tri runa zaredom iz gušta — igrač neće ni jedan. Sve u ovom dokumentu služi da taj test prođe.
+
+HUGO: NEURAL OVERLOAD · STRATEGIJA
+BALANS MESHY: 1.075 CR · GRANA: codex/boss-performance-pass

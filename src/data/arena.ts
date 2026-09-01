@@ -7,7 +7,7 @@ export const ARENA_LEVEL_INTEL = {
   title: "ARENA TEST",
   subtitle: "Top-down survival combat protocol",
   objectives: [
-    "Survive the 60 second breach.",
+    "Survive the 10 minute arena protocol.",
     "Collect data cores and build support links.",
     "Cross infinite city districts while weapons fire automatically.",
   ],

@@ -1,0 +1,82 @@
+[
+  {
+    "run": 1,
+    "id": "upgrade-ricochet",
+    "kind": "upgrade",
+    "target": "ricochet",
+    "label": "RICOCHET LINK",
+    "description": "Ricochet ulazi u support-link pool."
+  },
+  {
+    "run": 2,
+    "id": "operator-spectre",
+    "kind": "operator",
+    "target": "spectre",
+    "label": "SPECTRE ONLINE",
+    "description": "Phantom Assault klasa je otključana."
+  },
+  {
+    "run": 3,
+    "id": "ability-blast",
+    "kind": "ability",
+    "target": "blast",
+    "label": "Q · BLAST NOVA",
+    "description": "Radijalna eksplozija je trajno dostupna."
+  },
+  {
+    "run": 4,
+    "id": "upgrade-cluster",
+    "kind": "upgrade",
+    "target": "cluster",
+    "label": "CLUSTER LINK",
+    "description": "Cluster Bomb ulazi u support-link pool."
+  },
+  {
+    "run": 5,
+    "id": "ability-shield",
+    "kind": "ability",
+    "target": "shield",
+    "label": "F · BARRIER",
+    "description": "Aegis barijera je trajno dostupna."
+  },
+  {
+    "run": 6,
+    "id": "operator-vector",
+    "kind": "operator",
+    "target": "vector",
+    "label": "VECTOR ONLINE",
+    "description": "Prism Marksman klasa je otključana."
+  },
+  {
+    "run": 7,
+    "id": "ability-timewarp",
+    "kind": "ability",
+    "target": "timewarp",
+    "label": "E · TIME WARP",
+    "description": "Neprijateljski tok vremena može biti usporen."
+  },
+  {
+    "run": 8,
+    "id": "upgrade-phaserush",
+    "kind": "upgrade",
+    "target": "phaserush",
+    "label": "PHASE RUSH LINK",
+    "description": "Phase Rush ulazi u support-link pool."
+  },
+  {
+    "run": 9,
+    "id": "ability-overdrive",
+    "kind": "ability",
+    "target": "overdrive",
+    "label": "R · OVERDRIVE",
+    "description": "Privremeni trostruki ciklus paljbe je dostupan."
+  },
+  {
+    "run": 10,
+    "id": "veteran-credit-cache",
+    "kind": "credits",
+    "target": "250",
+    "label": "VETERAN CACHE",
+    "description": "+250 kredita za završetak prvog meta ciklusa."
+  }
+]

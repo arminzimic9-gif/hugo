@@ -1,0 +1,47 @@
+[
+  {
+    "id": "cleanse",
+    "label": "ČIŠĆENJE",
+    "description": "Ubij 15 neprijatelja prije isteka signala.",
+    "kind": "kills",
+    "target": 15,
+    "durationSeconds": 30,
+    "rewardLabel": "+50% DMG STACK"
+  },
+  {
+    "id": "ghost",
+    "label": "GHOST RUN",
+    "description": "Preživi 20 sekundi bez primljene štete.",
+    "kind": "no-damage",
+    "target": 20,
+    "durationSeconds": 20,
+    "rewardLabel": "+50% DMG STACK"
+  },
+  {
+    "id": "harvest",
+    "label": "ŽETVA",
+    "description": "Pokupi 10 data core-ova dok je link otvoren.",
+    "kind": "cores",
+    "target": 10,
+    "durationSeconds": 25,
+    "rewardLabel": "+50% DMG STACK"
+  },
+  {
+    "id": "execution",
+    "label": "EGZEKUCIJA",
+    "description": "Uništi elite signal prije isteka ugovora.",
+    "kind": "elite",
+    "target": 1,
+    "durationSeconds": 35,
+    "rewardLabel": "+50% DMG STACK"
+  },
+  {
+    "id": "defense",
+    "label": "ODBRANA",
+    "description": "Ostani uz Fixera 15 sekundi dok završava hack.",
+    "kind": "defense",
+    "target": 15,
+    "durationSeconds": 24,
+    "rewardLabel": "+50% DMG STACK"
+  }
+]

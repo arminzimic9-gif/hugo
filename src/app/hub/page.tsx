@@ -8,7 +8,6 @@ import { motion, useMotionValue, useSpring } from "framer-motion";
 import {
   Activity,
   Award,
-  Bot,
   Boxes,
   ChevronRight,
   CircleDot,
@@ -32,7 +31,11 @@ import { LEVELS_PER_SECTOR, getSectorForLevel, useGameStore } from "@/store/game
 import { getLevelIntel } from "@/data/progression";
 import { ACHIEVEMENTS } from "@/data/achievements";
 import { HEROES, HERO_ARCHETYPES, getHeroDefinition } from "@/data/heroes";
-import { MATERIALS } from "@/data/crafting";
+import { ARENA_OPERATORS } from "@/data/arenaOperators";
+import { ARENA_GEAR_CATALOG, ARENA_GEAR_RARITIES, ARENA_GEAR_SLOTS, type ArenaGearSlot } from "@/data/arenaGear";
+import { CRAFTING_RECIPES_BY_ID, MATERIALS } from "@/data/crafting";
+import { ARENA_PILOTS, ARENA_PILOT_BODIES } from "@/data/arenaPilots";
+import { ARENA_CLASSES, ARTIFACT_WEAPONS, getArtifactPowerThreshold } from "@/data/arenaProgression";
 import {
   ARENA_CONFIG,
   ARENA_LEVEL_INTEL,
@@ -44,9 +47,6 @@ import TelemetryRing from "@/components/game/TelemetryRing";
 const OperativeModel = dynamic(() => import("@/components/game/OperativeModel"), {
   ssr: false,
 });
-
-const TESTING_BOSS_SECTOR_ID = 100;
-const TESTING_BOSS_LEVEL = (TESTING_BOSS_SECTOR_ID - 1) * LEVELS_PER_SECTOR + 1;
 
 type SectorCard = {
   id: number;
@@ -60,14 +60,9 @@ type SectorCard = {
   route?: string;
 };
 
-type ControlDeckView = "missions" | "robots" | "systems" | "awards";
+type ControlDeckView = "missions" | "classes" | "gear" | "systems" | "awards";
 
 const SECTORS: SectorCard[] = [
-  { id: 1, name: "CYBERIA", color: "#00f2ff", levels: "01-11", descriptor: "INITIAL BREACH" },
-  { id: 2, name: "MAGMA PRIME", color: "#ff3b45", levels: "12-22", descriptor: "THERMAL WARZONE" },
-  { id: 3, name: "VOID NEXUS", color: "#9e7bff", levels: "23-33", descriptor: "NULL SPACE" },
-  { id: 4, name: "QUANTUM CORE", color: "#00e892", levels: "34-44", descriptor: "PHASE NETWORK" },
-  { id: 5, name: "OMEGA STATION", color: "#f4f7ff", levels: "45-55", descriptor: "FINAL PROTOCOL" },
   {
     id: ARENA_TEST_SECTOR_ID,
     name: ARENA_CONFIG.name,
@@ -79,8 +74,6 @@ const SECTORS: SectorCard[] = [
     levelPrefix: "A",
     route: "/arena",
   },
-  { id: 99, name: "LUDILO", color: "#ff2d9f", levels: "B01-B11", descriptor: "BONUS OVERLOAD" },
-  { id: TESTING_BOSS_SECTOR_ID, name: "BOSS SIM", color: "#ff4754", levels: "T01", descriptor: "COMBAT LAB", isTesting: true },
 ];
 
 const CONTROL_DECK_VIEWS: Array<{
@@ -89,35 +82,45 @@ const CONTROL_DECK_VIEWS: Array<{
   icon: typeof Radio;
 }> = [
   { id: "missions", label: "MISSIONS", icon: Radio },
-  { id: "robots", label: "ROBOTS", icon: Bot },
+  { id: "classes", label: "CLASSES", icon: Swords },
+  { id: "gear", label: "GEAR", icon: Boxes },
   { id: "systems", label: "SYSTEMS", icon: Cpu },
   { id: "awards", label: "AWARDS", icon: Trophy },
 ];
 
+const GEAR_SLOT_META: Record<ArenaGearSlot, { label: string; Icon: typeof Swords }> = {
+  head: { label: "HEAD", Icon: CircleDot },
+  torso: { label: "TORSO", Icon: Shield },
+  arms: { label: "ARMS", Icon: Wrench },
+  legs: { label: "LEGS", Icon: Gauge },
+  core: { label: "CORE", Icon: Cpu },
+  weapon: { label: "ARTIFACT MOD", Icon: Swords },
+};
+
 const sectorFirstLevel = (sectorId: number) =>
   sectorId === ARENA_TEST_SECTOR_ID
     ? ARENA_TEST_LEVEL
-    : sectorId === TESTING_BOSS_SECTOR_ID
-      ? TESTING_BOSS_LEVEL
-      : (sectorId - 1) * LEVELS_PER_SECTOR + 1;
+    : (sectorId - 1) * LEVELS_PER_SECTOR + 1;
 
 export default function NeuralHub() {
   const {
     username,
     stats,
     hero,
+    pilotBody,
     currentCampaignLevel,
-    currentSector,
     logout,
     setSector,
     setReplayLevel,
     setHeroProfile,
+    setPilotBody,
+    equipArenaGear,
   } = useGameStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [activeView, setActiveView] = useState<ControlDeckView>("missions");
-  const [selectedSectorId, setSelectedSectorId] = useState(currentSector || 1);
-  const [selectedLevel, setSelectedLevel] = useState(currentCampaignLevel || 1);
+  const [selectedSectorId, setSelectedSectorId] = useState(ARENA_TEST_SECTOR_ID);
+  const [selectedLevel, setSelectedLevel] = useState(ARENA_TEST_LEVEL);
   const pointerX = useMotionValue(0);
   const pointerY = useMotionValue(0);
   const heroX = useSpring(pointerX, { stiffness: 70, damping: 22, mass: 0.7 });
@@ -129,15 +132,28 @@ export default function NeuralHub() {
   }, [username, router]);
 
   const unlockedSectors = useMemo(
-    () => new Set([...(stats.unlockedSectors ?? [1]), ARENA_TEST_SECTOR_ID, 99, TESTING_BOSS_SECTOR_ID]),
-    [stats.unlockedSectors]
+    () => new Set([ARENA_TEST_SECTOR_ID]),
+    []
+  );
+  const unlockedOperators = useMemo(
+    () => new Set(stats.unlockedOperators ?? ["vanguard"]),
+    [stats.unlockedOperators]
   );
   const activeSector = SECTORS.find((sector) => sector.id === selectedSectorId) ?? SECTORS[0];
   const activeHero = getHeroDefinition(hero.archetype);
+  const activeClass = ARENA_CLASSES[hero.archetype];
+  const activeArtifactDefinition = ARTIFACT_WEAPONS[hero.archetype];
+  const activeArtifact = stats.artifactWeapons[hero.archetype];
+  const activePilot = ARENA_PILOTS[pilotBody];
   const campaignMaxLevel = Math.min(stats.maxLevelReached ?? 1, 5 * LEVELS_PER_SECTOR);
   const completedLevels = stats.completedLevels ?? [];
   const unlockedAchievements = stats.achievements ?? [];
   const craftedCount = stats.craftedGear?.length ?? 0;
+  const activeLoadout = stats.arenaLoadouts[hero.archetype];
+  const equippedGearCount = ARENA_GEAR_SLOTS.reduce(
+    (count, slot) => count + (activeLoadout[slot] ? 1 : 0),
+    0
+  );
   const materialInventory = stats.materials ?? {};
   const totalMaterials = MATERIALS.reduce((total, material) => total + (materialInventory[material.id] ?? 0), 0);
   const xpPercentage = Math.max(0, Math.min(100, (stats.xp / (1000 * stats.level)) * 100));
@@ -174,7 +190,7 @@ export default function NeuralHub() {
   const deploy = () => {
     setSector(activeSector.id);
     setReplayLevel(selectedLevel);
-    router.push(activeSector.route ?? "/play");
+    router.push("/arena");
   };
 
   const trackOperative = (event: React.PointerEvent<HTMLElement>) => {
@@ -196,9 +212,9 @@ export default function NeuralHub() {
 
   const systemStats = [
     { label: "POWER", value: Math.min(96, 42 + stats.level * 3 + stats.skills.length * 2), icon: Swords },
-    { label: "DEFENSE", value: Math.min(94, 34 + craftedCount * 5), icon: Shield },
+    { label: "DEFENSE", value: Math.min(94, 34 + equippedGearCount * 8), icon: Shield },
     { label: "CONTROL", value: Math.min(98, 48 + stats.level * 2 + Math.min(20, stats.skills.length)), icon: Crosshair },
-    { label: "MOBILITY", value: Math.min(99, 52 + craftedCount * 3 + stats.level * 2), icon: Gauge },
+    { label: "MOBILITY", value: Math.min(99, 52 + equippedGearCount * 5 + stats.level * 2), icon: Gauge },
   ];
 
   const missionPreviewImage = activeSector.id === 1 || activeSector.id === ARENA_TEST_SECTOR_ID
@@ -211,8 +227,8 @@ export default function NeuralHub() {
     <main
       className="relative min-h-screen overflow-y-auto bg-[#020405] text-white lg:h-screen lg:overflow-hidden"
       style={{ "--sector-accent": activeSector.color } as React.CSSProperties}
-      onPointerMove={activeView === "robots" ? trackOperative : undefined}
-      onPointerLeave={activeView === "robots" ? resetOperativePosition : undefined}
+      onPointerMove={activeView === "classes" ? trackOperative : undefined}
+      onPointerLeave={activeView === "classes" ? resetOperativePosition : undefined}
     >
       <div className="pointer-events-none absolute inset-0 bg-black/34" />
       <div className="pointer-events-none absolute inset-0 opacity-20 scanlines" />
@@ -231,7 +247,7 @@ export default function NeuralHub() {
             </div>
           </div>
 
-          <nav className="order-3 mt-3 grid w-full grid-cols-4 border border-white/10 md:order-none md:mt-0 md:w-auto md:min-w-[420px]" aria-label="Control Deck sections">
+          <nav className="order-3 mt-3 grid w-full grid-cols-5 border border-white/10 md:order-none md:mt-0 md:w-auto md:min-w-[500px]" aria-label="Control Deck sections">
             {CONTROL_DECK_VIEWS.map(({ id, label, icon: Icon }) => {
               const selected = activeView === id;
               return (
@@ -422,7 +438,7 @@ export default function NeuralHub() {
 
               <div className="border-b border-white/10 py-5">
                 <div className="mb-2 flex items-center justify-between font-mono text-[8px] uppercase tracking-normal text-gray-500">
-                  <span>{activeSector.isTesting ? "Simulation state" : "Campaign route"}</span>
+                  <span>Arena state</span>
                   <span>
                     {activeSector.isTesting
                       ? "READY"
@@ -443,13 +459,13 @@ export default function NeuralHub() {
               </div>
 
               <div className="py-5">
-                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Active chassis</div>
+                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Active class</div>
                 <div className="mt-2 flex items-center justify-between border border-white/10 bg-black/50 px-3 py-3">
                   <div>
                     <div className="font-mono text-[10px] text-white">{activeHero.label}</div>
                     <div className="font-mono text-[8px] text-gray-500">{activeHero.role}</div>
                   </div>
-                  <button type="button" onClick={() => setActiveView("robots")} className="font-mono text-[8px] uppercase tracking-normal text-cyan-200 hover:text-white">
+                  <button type="button" onClick={() => setActiveView("classes")} className="font-mono text-[8px] uppercase tracking-normal text-cyan-200 hover:text-white">
                     Change
                   </button>
                 </div>
@@ -473,9 +489,9 @@ export default function NeuralHub() {
           </motion.section>
         )}
 
-        {activeView === "robots" && (
+        {activeView === "classes" && (
           <motion.section
-            key="robots"
+            key="classes"
             initial={{ opacity: 0, x: 8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.18 }}
@@ -483,28 +499,49 @@ export default function NeuralHub() {
           >
             <aside className="border-r border-white/10 bg-black/78 p-4 lg:overflow-y-auto lg:p-5 app-scroll">
               <div className="mb-5">
-                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Available chassis</div>
-                <h1 className="mt-1 font-display text-xl uppercase tracking-normal">ROBOTS</h1>
+                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Available protocols</div>
+                <h1 className="mt-1 font-display text-xl uppercase tracking-normal">CLASSES</h1>
               </div>
               <div className="space-y-2">
                 {HERO_ARCHETYPES.map((archetype) => {
                   const definition = HEROES[archetype];
                   const selected = hero.archetype === archetype;
+                  const unlocked = unlockedOperators.has(archetype);
                   return (
                     <button
                       key={archetype}
                       type="button"
-                      onClick={() => setHeroProfile({ codename: hero.codename, archetype, accent: definition.accent })}
+                      disabled={!unlocked}
+                      onClick={() => {
+                        if (unlocked) {
+                          setHeroProfile({ codename: hero.codename, archetype, accent: definition.accent });
+                        }
+                      }}
                       className="relative flex w-full items-center gap-3 border p-2 text-left transition-colors"
-                      style={{ borderColor: selected ? definition.accent : "rgba(255,255,255,0.1)", background: selected ? `${definition.accent}12` : "rgba(0,0,0,0.45)" }}
+                      style={{
+                        borderColor: selected ? definition.accent : "rgba(255,255,255,0.1)",
+                        background: selected ? `${definition.accent}12` : "rgba(0,0,0,0.45)",
+                        opacity: unlocked ? 1 : 0.42,
+                      }}
                     >
-                      <div className="relative h-20 w-16 shrink-0 overflow-hidden bg-black">
-                        <Image src={definition.image} alt={`${definition.label} roster portrait`} fill sizes="64px" className="object-cover object-center" />
+                      <div className="relative flex h-20 w-16 shrink-0 items-center justify-center overflow-hidden bg-black">
+                        <span className="font-display text-3xl" style={{ color: definition.accent }}>
+                          {definition.label.slice(0, 1)}
+                        </span>
+                        {!unlocked ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+                            <LockKeyhole className="h-5 w-5 text-white/70" />
+                          </div>
+                        ) : null}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-display text-base uppercase tracking-normal text-white">{definition.label}</div>
-                        <div className="mt-1 truncate font-mono text-[8px] uppercase tracking-normal" style={{ color: definition.accent }}>{definition.chassis}</div>
-                        <div className="mt-1 truncate font-mono text-[8px] text-gray-500">{definition.role}</div>
+                        <div className="mt-1 truncate font-mono text-[8px] uppercase tracking-normal" style={{ color: definition.accent }}>{ARENA_OPERATORS[archetype].weaponName}</div>
+                        <div className="mt-1 truncate font-mono text-[8px] text-gray-500">
+                          {unlocked
+                            ? definition.role
+                            : `UNLOCK · RUN ${ARENA_OPERATORS[archetype].unlockRun}`}
+                        </div>
                       </div>
                       <ChevronRight className="h-4 w-4 shrink-0" style={{ color: selected ? definition.accent : "#3b4048" }} />
                       {selected && <span className="absolute inset-y-0 left-0 w-px" style={{ background: definition.accent }} />}
@@ -528,23 +565,12 @@ export default function NeuralHub() {
             <section className="relative isolate min-h-[620px] overflow-hidden bg-[#030607] lg:min-h-0">
               <motion.div key={hero.archetype} className="pointer-events-none absolute -inset-3" style={{ x: heroX, y: heroY }}>
                 <div className="operative-signal-in absolute inset-0">
-                  {activeHero.model ? (
-                    <OperativeModel
-                      modelUrl={activeHero.model}
-                      accent={activeHero.accent}
-                      label={activeHero.label}
-                      fallbackImage={activeHero.image}
-                    />
-                  ) : (
-                    <Image
-                      src={activeHero.image}
-                      alt={`${activeHero.label} cyber operative`}
-                      fill
-                      priority
-                      sizes="(min-width: 1024px) 50vw, 100vw"
-                      className="object-contain object-center opacity-100 lg:scale-[1.16]"
-                    />
-                  )}
+                  <OperativeModel
+                    modelUrl={activePilot.model}
+                    accent={activeHero.accent}
+                    label={`${activePilot.label} · ${activeHero.label}`}
+                    fallbackImage={activePilot.image}
+                  />
                 </div>
               </motion.div>
               <TelemetryRing accent={hero.accent} className="left-1/2 top-[47%] z-[1] -translate-x-1/2 -translate-y-1/2" />
@@ -552,13 +578,13 @@ export default function NeuralHub() {
               <div className="pointer-events-none absolute inset-0 z-[2] opacity-24 scanlines" />
 
               <div className="absolute left-5 top-5 z-10 border-l pl-3 lg:left-7 lg:top-7" style={{ borderColor: hero.accent }}>
-                <div className="font-mono text-[8px] uppercase tracking-normal" style={{ color: hero.accent }}>Active chassis</div>
-                <div className="font-display text-xl uppercase tracking-normal text-white">{activeHero.label}</div>
-                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-400">{activeHero.chassis} / {activeHero.role}</div>
+                <div className="font-mono text-[8px] uppercase tracking-normal" style={{ color: hero.accent }}>Active pilot class</div>
+                <div className="font-display text-xl uppercase tracking-normal text-white">{activePilot.label}</div>
+                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-400">{activeHero.label} / {activeHero.role}</div>
               </div>
 
               <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/10 bg-[#020405]/90 px-5 py-5 lg:px-7">
-                <div className="font-mono text-[8px] uppercase tracking-normal" style={{ color: hero.accent }}>Chassis profile</div>
+                <div className="font-mono text-[8px] uppercase tracking-normal" style={{ color: hero.accent }}>Class profile</div>
                 <div className="mt-2 max-w-2xl font-mono text-[10px] leading-relaxed text-gray-300">{activeHero.lore}</div>
               </div>
             </section>
@@ -600,6 +626,36 @@ export default function NeuralHub() {
                 ))}
               </div>
 
+              <div className="border-b border-white/10 py-5">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="border border-white/10 bg-black/45 p-3">
+                    <div className="font-mono text-[7px] text-gray-500">ARCHETYPE</div>
+                    <div className="mt-1 font-display text-sm" style={{ color: activeClass.accent }}>{activeClass.fantasy}</div>
+                  </div>
+                  <div className="border border-white/10 bg-black/45 p-3">
+                    <div className="font-mono text-[7px] text-gray-500">CLASS RESOURCE</div>
+                    <div className="mt-1 font-display text-sm" style={{ color: activeClass.accent }}>{activeClass.resource}</div>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-3 font-mono text-[8px] leading-relaxed">
+                  <div><span className="text-gray-500">RESOURCE RULE</span><br /><span className="text-gray-300">{activeClass.resourceRule}</span></div>
+                  <div><span className="text-gray-500">SIGNATURE</span><br /><span className="text-gray-300">{activeClass.signature}</span></div>
+                  <div><span className="text-gray-500">PASSIVE</span><br /><span className="text-gray-300">{activeClass.passive}</span></div>
+                  <div><span className="text-gray-500">WEAKNESS</span><br /><span className="text-gray-300">{activeClass.weakness}</span></div>
+                </div>
+                <div className="mt-4 border border-white/10 bg-black/45 p-3">
+                  <div className="flex items-center justify-between font-mono text-[7px] text-gray-500">
+                    <span>{activeArtifactDefinition.name}</span><span>TIER {activeArtifact.tier}/3</span>
+                  </div>
+                  <div className="mt-2 h-1 bg-white/10">
+                    <div className="h-full" style={{ width: `${Math.min(100, (activeArtifact.power / getArtifactPowerThreshold(activeArtifact)) * 100)}%`, background: activeArtifactDefinition.color }} />
+                  </div>
+                  <button type="button" onClick={() => router.push("/skills")} className="mt-3 font-mono text-[8px]" style={{ color: activeArtifactDefinition.color }}>
+                    OPEN SKILL & ARTIFACT MATRIX →
+                  </button>
+                </div>
+              </div>
+
               <div className="py-5">
                 <div className="mb-3 flex items-center justify-between">
                   <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">System modules</div>
@@ -614,6 +670,74 @@ export default function NeuralHub() {
                 </div>
               </div>
 
+              <div className="border-t border-white/10 py-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Arena loadout</div>
+                  <div className="font-mono text-[8px] text-gray-400">{equippedGearCount}/{ARENA_GEAR_SLOTS.length} EQUIPPED</div>
+                </div>
+                <div className="space-y-3">
+                  {ARENA_GEAR_SLOTS.map((slot) => {
+                    const { label, Icon } = GEAR_SLOT_META[slot];
+                    const equippedId = activeLoadout[slot];
+                    const equippedDefinition = equippedId ? ARENA_GEAR_CATALOG[equippedId] : null;
+                    const equippedRarity = equippedDefinition
+                      ? ARENA_GEAR_RARITIES[equippedDefinition.rarity]
+                      : null;
+                    const candidates = (stats.craftedGear ?? []).filter(
+                      (id) => ARENA_GEAR_CATALOG[id].slot === slot
+                    );
+                    return (
+                      <div key={slot} className="border border-white/10 bg-black/45 p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex items-center gap-2 font-mono text-[8px] text-gray-500">
+                            <Icon className="h-3.5 w-3.5" /> {label}
+                          </span>
+                          <span
+                            className="truncate font-mono text-[8px]"
+                            style={{ color: equippedRarity?.color ?? "#4b5058" }}
+                          >
+                            {equippedId ? CRAFTING_RECIPES_BY_ID[equippedId].name : "EMPTY"}
+                          </span>
+                        </div>
+                        {candidates.length > 0 ? (
+                          <div className="mt-2 grid grid-cols-1 gap-1.5">
+                            {candidates.map((id) => {
+                              const definition = ARENA_GEAR_CATALOG[id];
+                              const rarity = ARENA_GEAR_RARITIES[definition.rarity];
+                              const selected = equippedId === id;
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  aria-pressed={selected}
+                                  onClick={() => equipArenaGear(hero.archetype, slot, selected ? null : id)}
+                                  className="flex items-center justify-between gap-2 border px-2.5 py-2 text-left transition-colors hover:bg-white/[0.04]"
+                                  style={{
+                                    borderColor: selected ? rarity.color : "rgba(255,255,255,.08)",
+                                    background: selected ? `${rarity.color}10` : "transparent",
+                                  }}
+                                >
+                                  <span className="truncate font-mono text-[8px] text-white">
+                                    {CRAFTING_RECIPES_BY_ID[id].name}
+                                  </span>
+                                  <span className="shrink-0 font-mono text-[7px]" style={{ color: rarity.color }}>
+                                    {rarity.label}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="mt-2 font-mono text-[8px] leading-relaxed text-gray-600">
+                            Craft compatible gear in Systems.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setActiveView("missions")}
@@ -621,11 +745,163 @@ export default function NeuralHub() {
                 style={{ borderColor: hero.accent, background: `${hero.accent}12` }}
               >
                 <div>
-                  <div className="font-mono text-[8px] uppercase tracking-normal" style={{ color: hero.accent }}>Chassis synced</div>
-                  <div className="mt-1 font-display text-lg uppercase tracking-normal text-white">Mission select</div>
+                  <div className="font-mono text-[8px] uppercase tracking-normal" style={{ color: hero.accent }}>Pilot synced</div>
+                  <div className="mt-1 font-display text-lg uppercase tracking-normal text-white">Arena select</div>
                 </div>
                 <ChevronRight className="h-5 w-5" style={{ color: hero.accent }} />
               </button>
+            </aside>
+          </motion.section>
+        )}
+
+        {activeView === "gear" && (
+          <motion.section
+            key="gear"
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.18 }}
+            className="grid min-h-[calc(100vh-116px)] grid-cols-1 lg:h-full lg:min-h-0 lg:grid-cols-[300px_minmax(360px,1fr)_390px]"
+          >
+            <aside className="border-r border-white/10 bg-black/78 p-5 lg:overflow-y-auto app-scroll">
+              <div className="border-b border-white/10 pb-5">
+                <div className="font-mono text-[8px] uppercase tracking-normal text-cyan-200/65">Human operator</div>
+                <h1 className="mt-1 font-display text-2xl uppercase tracking-normal text-white">PILOT</h1>
+                <div className="mt-2 font-mono text-[9px] leading-relaxed text-gray-500">
+                  The human pilot is permanent. Crafted gear improves combat stats without replacing the pilot body.
+                </div>
+              </div>
+
+              <div className="space-y-2 py-5">
+                {ARENA_PILOT_BODIES.map((body) => {
+                  const pilot = ARENA_PILOTS[body];
+                  const selected = pilotBody === body;
+                  return (
+                    <button
+                      key={body}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setPilotBody(body)}
+                      className="flex w-full items-center gap-3 border bg-black/45 p-2 text-left transition-colors"
+                      style={{ borderColor: selected ? hero.accent : "rgba(255,255,255,.1)" }}
+                    >
+                      <span className="relative h-20 w-16 shrink-0 overflow-hidden bg-black">
+                        <Image src={pilot.image} alt="" fill sizes="64px" className="object-cover object-top" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-display text-sm tracking-[0.12em] text-white">{pilot.label}</span>
+                        <span className="mt-1 block font-mono text-[7px] leading-relaxed text-gray-500">{pilot.descriptor}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="border-y border-white/10 py-5">
+                <div className="flex items-center justify-between font-mono text-[8px] text-gray-500">
+                  <span>LOADOUT SYNC</span>
+                  <span style={{ color: hero.accent }}>{equippedGearCount}/{ARENA_GEAR_SLOTS.length}</span>
+                </div>
+                <div className="mt-3 h-1 bg-white/10">
+                  <motion.div
+                    className="h-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(equippedGearCount / ARENA_GEAR_SLOTS.length) * 100}%` }}
+                    style={{ background: hero.accent, boxShadow: `0 0 12px ${hero.accent}` }}
+                  />
+                </div>
+                <div className="mt-3 font-mono text-[8px] leading-relaxed text-gray-500">
+                  {equippedGearCount === ARENA_GEAR_SLOTS.length
+                    ? `${activePilot.label} has a complete combat loadout.`
+                    : "The pilot remains human while equipped gear adds permanent arena modifiers."}
+                </div>
+              </div>
+
+              <div className="pt-5">
+                <div className="font-mono text-[8px] text-gray-500">BOSS ARTIFACTS</div>
+                <div className="mt-2 space-y-1.5">
+                  {(stats.bossArtifacts ?? []).length ? (
+                    stats.bossArtifacts.map((artifact) => (
+                      <div key={artifact} className="border border-amber-300/25 bg-amber-300/5 px-3 py-2 font-mono text-[8px] text-amber-200">
+                        {artifact.replaceAll("_", " ").toUpperCase()}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="font-mono text-[8px] leading-relaxed text-gray-600">Defeat Arena bosses to recover class and combat technology.</div>
+                  )}
+                </div>
+              </div>
+            </aside>
+
+            <section className="relative isolate min-h-[610px] overflow-hidden bg-[#030607] lg:min-h-0">
+              <div className="absolute inset-0 operative-signal-in">
+                <OperativeModel
+                  modelUrl={activePilot.model}
+                  accent={hero.accent}
+                  label={activePilot.label}
+                  fallbackImage={activePilot.image}
+                />
+              </div>
+              <TelemetryRing accent={hero.accent} className="left-1/2 top-[48%] z-[1] -translate-x-1/2 -translate-y-1/2" />
+              <div className="pointer-events-none absolute inset-0 z-[2] opacity-20 scanlines" />
+              <div className="absolute left-6 top-6 z-10 border-l pl-3" style={{ borderColor: hero.accent }}>
+                <div className="font-mono text-[8px] text-gray-500">NEURAL ID / {hero.codename}</div>
+                <div className="mt-1 font-display text-xl text-white">{activePilot.label}</div>
+                <div className="font-mono text-[8px]" style={{ color: hero.accent }}>{activeHero.label} ASSEMBLY PATH</div>
+              </div>
+              <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/10 bg-black/85 px-6 py-4">
+                <div className="flex items-center justify-between gap-4 font-mono text-[8px]">
+                  <span className="text-gray-500">ANIMATION LINK</span>
+                  <span className="text-cyan-200">IDLE / WALK RIG ONLINE</span>
+                </div>
+              </div>
+            </section>
+
+            <aside className="border-l border-white/10 bg-black/78 p-5 lg:overflow-y-auto app-scroll">
+              <div className="mb-4 border-b border-white/10 pb-4">
+                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Physical suit links</div>
+                <div className="mt-1 font-display text-xl text-white">GEAR ASSEMBLY</div>
+              </div>
+              <div className="space-y-2">
+                {ARENA_GEAR_SLOTS.map((slot) => {
+                  const { label, Icon } = GEAR_SLOT_META[slot];
+                  const equippedId = activeLoadout[slot];
+                  const candidates = (stats.craftedGear ?? []).filter((id) => ARENA_GEAR_CATALOG[id].slot === slot);
+                  return (
+                    <div key={slot} className="border border-white/10 bg-black/45 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="flex items-center gap-2 font-mono text-[8px] text-gray-500"><Icon className="h-3.5 w-3.5" /> {label}</span>
+                        <span className="truncate font-mono text-[8px]" style={{ color: equippedId ? ARENA_GEAR_RARITIES[ARENA_GEAR_CATALOG[equippedId].rarity].color : "#4b5058" }}>
+                          {equippedId ? CRAFTING_RECIPES_BY_ID[equippedId].name : "EMPTY"}
+                        </span>
+                      </div>
+                      {candidates.length ? (
+                        <div className="mt-2 grid gap-1">
+                          {candidates.map((id) => {
+                            const rarity = ARENA_GEAR_RARITIES[ARENA_GEAR_CATALOG[id].rarity];
+                            const selected = equippedId === id;
+                            return (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => equipArenaGear(hero.archetype, slot, selected ? null : id)}
+                                className="flex items-center justify-between border px-2 py-1.5 text-left font-mono text-[8px]"
+                                style={{ borderColor: selected ? rarity.color : "rgba(255,255,255,.08)", background: selected ? `${rarity.color}10` : "transparent" }}
+                              >
+                                <span className="truncate text-white">{CRAFTING_RECIPES_BY_ID[id].name}</span>
+                                <span className="ml-2 text-[7px]" style={{ color: rarity.color }}>{selected ? "LINKED" : rarity.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => router.push("/skills")} className="mt-2 w-full border border-dashed border-white/10 py-2 font-mono text-[7px] text-gray-600 hover:text-white">
+                          FABRICATE IN SYSTEMS
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </aside>
           </motion.section>
         )}
@@ -693,15 +969,19 @@ export default function NeuralHub() {
                 <div><div className="font-display text-xl text-white">{stats.skills.length}</div><div className="font-mono text-[8px] text-gray-500">SKILLS</div></div>
               </div>
               <div className="py-5">
-                <div className="mb-3 font-mono text-[8px] uppercase tracking-normal text-gray-500">Active chassis</div>
+                <div className="mb-3 font-mono text-[8px] uppercase tracking-normal text-gray-500">Active pilot</div>
                 <div className="flex items-center gap-3 border border-white/10 bg-black/50 p-3">
-                  <div className="relative h-16 w-14 shrink-0 overflow-hidden bg-black"><Image src={activeHero.image} alt="" fill sizes="56px" className="object-cover" /></div>
+                  <div className="relative h-16 w-14 shrink-0 overflow-hidden bg-black"><Image src={activePilot.image} alt="" fill sizes="56px" className="object-cover object-top" /></div>
                   <div className="min-w-0"><div className="truncate font-display text-base text-white">{activeHero.label}</div><div className="truncate font-mono text-[8px]" style={{ color: hero.accent }}>{activeHero.role}</div></div>
                 </div>
               </div>
               <div className="border-t border-white/10 pt-5">
                 <div className="mb-3 flex items-center gap-2 font-mono text-[8px] uppercase tracking-normal text-gray-500"><Hammer className="h-3.5 w-3.5" /> Crafted loadout</div>
-                <div className="font-mono text-[10px] leading-relaxed text-gray-400">{craftedCount > 0 ? `${craftedCount} gear modules are linked to gameplay physics.` : "No crafted gear linked yet."}</div>
+                <div className="font-mono text-[10px] leading-relaxed text-gray-400">
+                  {craftedCount > 0
+                    ? `${equippedGearCount}/${ARENA_GEAR_SLOTS.length} active links on ${activeHero.label}. Equip changes in GEAR.`
+                    : "No crafted gear linked yet."}
+                </div>
               </div>
             </aside>
           </motion.section>

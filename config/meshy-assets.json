@@ -179,6 +179,431 @@
           "expectedCredits": 30
         }
       ]
+    },
+    "arena-city-kit": {
+      "creditLimit": 210,
+      "mode": "text-to-3d",
+      "assets": [
+        {
+          "id": "cyber-tower-wide",
+          "label": "CYBER TOWER WIDE",
+          "prompt": "low-poly cyberpunk wide mid-rise city building, broad rectangular footprint, layered dark gunmetal facade, readable cyan and magenta emissive windows, rooftop vents and antenna machinery, strong silhouette from a high top-down game camera, isolated single modular environment asset without terrain or ground plane, game-ready",
+          "runtime": "public/models/environment/cyber-tower-wide.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "cyber-tower-tall",
+          "label": "CYBER TOWER TALL",
+          "prompt": "low-poly cyberpunk tall narrow city tower, vertical stepped dark metal facade, bright cyan emissive windows and magenta neon sign strips, rooftop antenna crown, strong silhouette from a high top-down game camera, isolated single modular environment asset without terrain or ground plane, game-ready",
+          "runtime": "public/models/environment/cyber-tower-tall.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "industrial-warehouse",
+          "label": "INDUSTRIAL WAREHOUSE",
+          "prompt": "low-poly cyberpunk industrial warehouse building, low broad rectangular structure, reinforced dark metal walls, loading doors, rooftop pipes vents and machinery, orange hazard lights with cyan status panels, strong silhouette from a high top-down game camera, isolated single modular environment asset without terrain or ground plane, game-ready",
+          "runtime": "public/models/environment/industrial-warehouse.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "cyber-wall-segment",
+          "label": "CYBER WALL SEGMENT",
+          "prompt": "low-poly modular cyberpunk reinforced wall segment, thick dark gunmetal security wall with armored ribs, cyan neon edge strips, orange hazard markings and small embedded control panels, straight freestanding piece with flat ends for repetition, isolated single environment prop without terrain, game-ready",
+          "runtime": "public/models/environment/cyber-wall-segment.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "transit-barrier",
+          "label": "TRANSIT BARRIER",
+          "prompt": "low-poly modular cyberpunk road transit barrier, wide waist-high armored barricade, dark gunmetal panels, bright orange hazard chevrons and cyan warning lights, clean readable silhouette from a high top-down game camera, isolated single environment prop without terrain, game-ready",
+          "runtime": "public/models/environment/transit-barrier.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "extraction-gate",
+          "label": "EXTRACTION GATE",
+          "prompt": "low-poly cyberpunk extraction gate, large freestanding rectangular portal arch with heavy dark metal pylons, luminous cyan energy frame, magenta status lights and orange hazard markings, open center for a player to pass through, clean silhouette from a high top-down game camera, isolated single environment prop without terrain, game-ready",
+          "runtime": "public/models/environment/extraction-gate.glb",
+          "expectedCredits": 30
+        },
+        {
+          "id": "bridge-ramp",
+          "label": "BRIDGE RAMP",
+          "prompt": "low-poly cyberpunk short bridge ramp module, wide drivable sloped metal deck with reinforced side rails, dark gunmetal plating, cyan edge lights and orange hazard stripes, clean rectangular modular footprint, isolated single environment prop without terrain, game-ready",
+          "runtime": "public/models/environment/bridge-ramp.glb",
+          "expectedCredits": 30
+        }
+      ]
+    },
+    "arena-approved-concepts-v2": {
+      "creditLimit": 180,
+      "mode": "image-to-3d",
+      "assets": [
+        {
+          "id": "drone-plasma-bolt",
+          "label": "DRONE PLASMA BOLT",
+          "reference": "assets/originals/imported/arena-projectiles/drone-plasma-bolt.png",
+          "runtime": "public/models/projectiles/drone-plasma-bolt.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "heavy-siege-shell",
+          "label": "HEAVY SIEGE SHELL",
+          "reference": "assets/originals/imported/arena-projectiles/heavy-siege-shell.png",
+          "runtime": "public/models/projectiles/heavy-siege-shell.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "hunter-ion-needle",
+          "label": "HUNTER ION NEEDLE",
+          "reference": "assets/originals/imported/arena-projectiles/hunter-ion-needle.png",
+          "runtime": "public/models/projectiles/hunter-ion-needle.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "elite-singularity-mine",
+          "label": "ELITE SINGULARITY MINE",
+          "reference": "assets/originals/imported/arena-projectiles/elite-singularity-mine.png",
+          "runtime": "public/models/projectiles/elite-singularity-mine.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "data-core-v2",
+          "label": "DATA CORE V2",
+          "reference": "assets/originals/imported/arena-pickups/data-core-v2.png",
+          "runtime": "public/models/pickups/data-core.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "cyber-tower-wide-v2",
+          "label": "CYBER TOWER WIDE V2",
+          "reference": "assets/originals/imported/arena-environment-concepts/cyber-tower-wide.png",
+          "runtime": "public/models/environment/cyber-tower-wide-v2.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "cyber-tower-tall-v2",
+          "label": "CYBER TOWER TALL V2",
+          "reference": "assets/originals/imported/arena-environment-concepts/cyber-tower-tall.png",
+          "runtime": "public/models/environment/cyber-tower-tall-v2.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "industrial-warehouse-v2",
+          "label": "INDUSTRIAL WAREHOUSE V2",
+          "reference": "assets/originals/imported/arena-environment-concepts/industrial-warehouse.png",
+          "runtime": "public/models/environment/industrial-warehouse-v2.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "cyber-wall-segment-v2",
+          "label": "CYBER WALL SEGMENT V2",
+          "reference": "assets/originals/imported/arena-environment-concepts/cyber-wall-segment.png",
+          "runtime": "public/models/environment/cyber-wall-segment-v2.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "transit-barrier-v2",
+          "label": "TRANSIT BARRIER V2",
+          "reference": "assets/originals/imported/arena-environment-concepts/transit-barrier.png",
+          "runtime": "public/models/environment/transit-barrier-v2.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "extraction-gate-v2",
+          "label": "EXTRACTION GATE V2",
+          "reference": "assets/originals/imported/arena-environment-concepts/extraction-gate.png",
+          "runtime": "public/models/environment/extraction-gate-v2.glb",
+          "expectedCredits": 15
+        },
+        {
+          "id": "bridge-ramp-v2",
+          "label": "BRIDGE RAMP V2",
+          "reference": "assets/originals/imported/arena-environment-concepts/bridge-ramp.png",
+          "runtime": "public/models/environment/bridge-ramp-v2.glb",
+          "expectedCredits": 15
+        }
+      ]
+    },
+    "arena-destruction-v1": {
+      "creditLimit": 60,
+      "mode": "image-to-3d",
+      "assets": [
+        {
+          "id": "destroyed-cyber-car",
+          "label": "DESTROYED CYBER CAR",
+          "reference": "assets/originals/imported/arena-destruction-concepts/destroyed-cyber-car.png",
+          "runtime": "public/models/environment/destroyed-cyber-car.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        },
+        {
+          "id": "destroyed-transit-bus",
+          "label": "DESTROYED TRANSIT BUS",
+          "reference": "assets/originals/imported/arena-destruction-concepts/destroyed-transit-bus.png",
+          "runtime": "public/models/environment/destroyed-transit-bus.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        },
+        {
+          "id": "burning-collapsed-facade",
+          "label": "BURNING COLLAPSED FACADE",
+          "reference": "assets/originals/imported/arena-destruction-concepts/burning-collapsed-facade.png",
+          "runtime": "public/models/environment/burning-collapsed-facade.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        },
+        {
+          "id": "boss-impact-crater",
+          "label": "BOSS IMPACT CRATER",
+          "reference": "assets/originals/imported/arena-destruction-concepts/boss-impact-crater.png",
+          "runtime": "public/models/environment/boss-impact-crater.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        }
+      ]
+    },
+    "arena-biomes-v1": {
+      "creditLimit": 105,
+      "mode": "image-to-3d",
+      "assets": [
+        {
+          "id": "cyber-street-tree",
+          "label": "CYBER STREET TREE",
+          "reference": "assets/originals/imported/arena-vegetation-concepts/cyber-street-tree.png",
+          "runtime": "public/models/environment/cyber-street-tree.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        },
+        {
+          "id": "burned-cyber-tree",
+          "label": "BURNED CYBER TREE",
+          "reference": "assets/originals/imported/arena-vegetation-concepts/burned-cyber-tree.png",
+          "runtime": "public/models/environment/burned-cyber-tree.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        },
+        {
+          "id": "verdant-energy-bush",
+          "label": "VERDANT ENERGY BUSH",
+          "reference": "assets/originals/imported/arena-vegetation-concepts/verdant-energy-bush.png",
+          "runtime": "public/models/environment/verdant-energy-bush.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        },
+        {
+          "id": "rail-swamp-bush",
+          "label": "RAIL SWAMP BUSH",
+          "reference": "assets/originals/imported/arena-vegetation-concepts/rail-swamp-bush.png",
+          "runtime": "public/models/environment/rail-swamp-bush.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        },
+        {
+          "id": "cyber-rail-segment",
+          "label": "CYBER RAIL SEGMENT",
+          "reference": "assets/originals/imported/arena-environment-concepts/cyber-rail-segment.png",
+          "runtime": "public/models/environment/cyber-rail-segment.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        },
+        {
+          "id": "orbital-incendiary-missile",
+          "label": "ORBITAL INCENDIARY MISSILE",
+          "reference": "assets/originals/imported/arena-projectiles/orbital-incendiary-missile.png",
+          "runtime": "public/models/projectiles/orbital-incendiary-missile.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        },
+        {
+          "id": "health-core",
+          "label": "HEALTH CORE",
+          "reference": "assets/originals/imported/arena-pickups/health-core.png",
+          "runtime": "public/models/pickups/health-core.glb",
+          "expectedCredits": 15,
+          "poseMode": null
+        }
+      ]
+    },
+    "arena-relic-weapons-v1": {
+      "creditLimit": 45,
+      "mode": "image-to-3d",
+      "assets": [
+        {
+          "id": "relic-warrior-greatsword",
+          "label": "RELIC WARRIOR GREATSWORD",
+          "reference": "assets/originals/imported/arena-relic-weapons/relic-warrior-greatsword.png",
+          "runtime": "public/models/weapons/relic-warrior-greatsword.glb",
+          "expectedCredits": 15,
+          "poseMode": null,
+          "options": {
+            "target_polycount": 12000
+          }
+        },
+        {
+          "id": "relic-rogue-monoblade",
+          "label": "RELIC ROGUE MONOBLADE",
+          "reference": "assets/originals/imported/arena-relic-weapons/relic-rogue-monoblade.png",
+          "runtime": "public/models/weapons/relic-rogue-monoblade.glb",
+          "expectedCredits": 15,
+          "poseMode": null,
+          "options": {
+            "target_polycount": 10000
+          }
+        },
+        {
+          "id": "relic-warlock-glaive",
+          "label": "RELIC WARLOCK GLAIVE",
+          "reference": "assets/originals/imported/arena-relic-weapons/relic-warlock-glaive.png",
+          "runtime": "public/models/weapons/relic-warlock-glaive.glb",
+          "expectedCredits": 15,
+          "poseMode": null,
+          "options": {
+            "target_polycount": 12000
+          }
+        }
+      ]
+    },
+    "arena-pilots-v1": {
+      "creditLimit": 30,
+      "mode": "image-to-3d",
+      "assets": [
+        {
+          "id": "pilot-male",
+          "label": "MALE HUMAN PILOT",
+          "reference": "assets/originals/imported/arena-pilots/pilot-male.png",
+          "runtime": "public/models/pilots/pilot-male.glb",
+          "expectedCredits": 15,
+          "options": {
+            "target_polycount": 15000
+          }
+        },
+        {
+          "id": "pilot-female",
+          "label": "FEMALE HUMAN PILOT",
+          "reference": "assets/originals/imported/arena-pilots/pilot-female.png",
+          "runtime": "public/models/pilots/pilot-female.glb",
+          "expectedCredits": 15,
+          "options": {
+            "target_polycount": 15000
+          }
+        }
+      ]
+    },
+    "arena-boss1-cyber-sentinel-v1": {
+      "creditLimit": 15,
+      "mode": "image-to-3d",
+      "assets": [
+        {
+          "id": "cyber-sentinel-boss1",
+          "label": "BOSS 1 · CYBER SENTINEL",
+          "reference": "assets/originals/imported/arena-bosses/cyber-sentinel-boss1.png",
+          "runtime": "public/models/bosses/cyber-sentinel-boss1.glb",
+          "expectedCredits": 15,
+          "options": {
+            "target_polycount": 20000
+          }
+        }
+      ]
+    },
+    "arena-act1-bosses-v1": {
+      "creditLimit": 45,
+      "mode": "image-to-3d",
+      "assets": [
+        {
+          "id": "cyber-sentinel-boss1",
+          "label": "BOSS I · AXIOM WARDEN",
+          "reference": "assets/originals/imported/arena-bosses/cyber-sentinel-boss1.png",
+          "runtime": "public/models/bosses/cyber-sentinel-boss1.glb",
+          "expectedCredits": 15,
+          "poseMode": null,
+          "options": {
+            "target_polycount": 15000
+          }
+        },
+        {
+          "id": "gemini-choir-boss2",
+          "label": "BOSS II · GEMINI CHOIR",
+          "reference": "assets/originals/imported/arena-bosses/gemini-choir-boss2.png",
+          "runtime": "public/models/bosses/gemini-choir-boss2.glb",
+          "expectedCredits": 15,
+          "poseMode": null,
+          "options": {
+            "target_polycount": 15000
+          }
+        },
+        {
+          "id": "hollow-crown-boss3",
+          "label": "BOSS III · THE HOLLOW CROWN",
+          "reference": "assets/originals/imported/arena-bosses/hollow-crown-boss3.png",
+          "runtime": "public/models/bosses/hollow-crown-boss3.glb",
+          "expectedCredits": 15,
+          "poseMode": null,
+          "options": {
+            "target_polycount": 15000
+          }
+        }
+      ]
+    }
+  },
+  "riggingBatches": {
+    "arena-pilot-combat-v1": {
+      "creditLimit": 28,
+      "assets": [
+        {
+          "id": "pilot-male",
+          "label": "MALE HUMAN PILOT COMBAT RIG",
+          "inputTaskId": "01a056f8-b3b0-731f-a00f-2b50535349d4",
+          "heightMeters": 1.82,
+          "expectedRigCredits": 5,
+          "animations": [
+            { "id": "idle", "actionId": 0, "expectedCredits": 3 },
+            { "id": "combat-stance", "actionId": 89, "expectedCredits": 3 },
+            { "id": "melee-attack", "actionId": 92, "expectedCredits": 3 }
+          ]
+        },
+        {
+          "id": "pilot-female",
+          "label": "FEMALE HUMAN PILOT COMBAT RIG",
+          "inputTaskId": "01a056fa-99bc-77a9-b44f-1fcd935bc6e0",
+          "heightMeters": 1.72,
+          "expectedRigCredits": 5,
+          "animations": [
+            { "id": "idle", "actionId": 0, "expectedCredits": 3 },
+            { "id": "combat-stance", "actionId": 89, "expectedCredits": 3 },
+            { "id": "melee-attack", "actionId": 92, "expectedCredits": 3 }
+          ]
+        }
+      ]
+    },
+    "arena-pilot-class-motion-v1": {
+      "creditLimit": 24,
+      "assets": [
+        {
+          "id": "pilot-male",
+          "label": "MALE PILOT CLASS MOTION",
+          "existingRigTaskId": "01a05724-61cb-7281-852d-69898d4884cb",
+          "expectedRigCredits": 0,
+          "animations": [
+            { "id": "combat-walk", "actionId": 689, "expectedCredits": 3 },
+            { "id": "warrior-attack", "actionId": 102, "expectedCredits": 3 },
+            { "id": "rogue-attack", "actionId": 91, "expectedCredits": 3 },
+            { "id": "warlock-attack", "actionId": 125, "expectedCredits": 3 }
+          ]
+        },
+        {
+          "id": "pilot-female",
+          "label": "FEMALE PILOT CLASS MOTION",
+          "existingRigTaskId": "01a05725-d546-7355-9f94-1b75171671c9",
+          "expectedRigCredits": 0,
+          "animations": [
+            { "id": "combat-walk", "actionId": 689, "expectedCredits": 3 },
+            { "id": "warrior-attack", "actionId": 102, "expectedCredits": 3 },
+            { "id": "rogue-attack", "actionId": 91, "expectedCredits": 3 },
+            { "id": "warlock-attack", "actionId": 125, "expectedCredits": 3 }
+          ]
+        }
+      ]
     }
   },
   "roadmap": {

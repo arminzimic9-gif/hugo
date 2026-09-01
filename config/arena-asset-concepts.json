@@ -1,0 +1,341 @@
+{
+  "schemaVersion": 1,
+  "workflow": "imagegen-concept-review-then-meshy-image-to-3d",
+  "approvalRequiredBeforeMeshy": true,
+  "meshyAuthorized": true,
+  "concepts": [
+    {
+      "id": "drone-plasma-bolt",
+      "owner": "arena-drone",
+      "kind": "enemy-projectile",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-projectiles/drone-plasma-bolt.png",
+      "plannedRuntime": "public/models/projectiles/drone-plasma-bolt.glb",
+      "weaponIdentity": {
+        "name": "Twin Plasma Bolt",
+        "pattern": "alternating-dual-shot",
+        "speed": 9.5,
+        "damage": 4,
+        "accent": "#00f2ff"
+      }
+    },
+    {
+      "id": "heavy-siege-shell",
+      "owner": "arena-heavy",
+      "kind": "enemy-projectile",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-projectiles/heavy-siege-shell.png",
+      "plannedRuntime": "public/models/projectiles/heavy-siege-shell.glb",
+      "weaponIdentity": {
+        "name": "Siege Shell",
+        "pattern": "slow-explosive-shot",
+        "speed": 6.2,
+        "damage": 16,
+        "splashRadius": 2.4,
+        "accent": "#ff5a24"
+      }
+    },
+    {
+      "id": "hunter-ion-needle",
+      "owner": "arena-hunter",
+      "kind": "enemy-projectile",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-projectiles/hunter-ion-needle.png",
+      "plannedRuntime": "public/models/projectiles/hunter-ion-needle.glb",
+      "weaponIdentity": {
+        "name": "Ion Needle",
+        "pattern": "fast-piercing-shot",
+        "speed": 15.5,
+        "damage": 8,
+        "pierce": 1,
+        "accent": "#ff3bd4"
+      }
+    },
+    {
+      "id": "elite-singularity-mine",
+      "owner": "arena-elite",
+      "kind": "enemy-projectile",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-projectiles/elite-singularity-mine.png",
+      "plannedRuntime": "public/models/projectiles/elite-singularity-mine.glb",
+      "weaponIdentity": {
+        "name": "Singularity Mine",
+        "pattern": "slow-radial-burst",
+        "speed": 4.8,
+        "damage": 18,
+        "burstCount": 6,
+        "accent": "#ff003c"
+      }
+    },
+    {
+      "id": "data-core-v2",
+      "owner": "arena-drop",
+      "kind": "pickup",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-pickups/data-core-v2.png",
+      "plannedRuntime": "public/models/pickups/data-core.glb",
+      "pickupIdentity": {
+        "name": "Data Core",
+        "behavior": "xp-pickup",
+        "accent": "#00ffb2"
+      }
+    },
+    {
+      "id": "cyber-tower-wide-v2",
+      "owner": "arena-environment",
+      "kind": "modular-building",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-environment-concepts/cyber-tower-wide.png",
+      "plannedRuntime": "public/models/environment/cyber-tower-wide-v2.glb",
+      "environmentIdentity": {
+        "role": "wide-city-block",
+        "solid": true,
+        "accent": "#00f2ff"
+      }
+    },
+    {
+      "id": "cyber-tower-tall-v2",
+      "owner": "arena-environment",
+      "kind": "modular-building",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-environment-concepts/cyber-tower-tall.png",
+      "plannedRuntime": "public/models/environment/cyber-tower-tall-v2.glb",
+      "environmentIdentity": {
+        "role": "tall-city-block",
+        "solid": true,
+        "accent": "#ff3bd4"
+      }
+    },
+    {
+      "id": "industrial-warehouse-v2",
+      "owner": "arena-environment",
+      "kind": "modular-building",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-environment-concepts/industrial-warehouse.png",
+      "plannedRuntime": "public/models/environment/industrial-warehouse-v2.glb",
+      "environmentIdentity": {
+        "role": "warehouse-city-block",
+        "solid": true,
+        "accent": "#ff8800"
+      }
+    },
+    {
+      "id": "cyber-wall-segment-v2",
+      "owner": "arena-environment",
+      "kind": "modular-obstacle",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-environment-concepts/cyber-wall-segment.png",
+      "plannedRuntime": "public/models/environment/cyber-wall-segment-v2.glb",
+      "environmentIdentity": {
+        "role": "repeatable-security-wall",
+        "solid": true,
+        "accent": "#00f2ff"
+      }
+    },
+    {
+      "id": "transit-barrier-v2",
+      "owner": "arena-environment",
+      "kind": "modular-obstacle",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-environment-concepts/transit-barrier.png",
+      "plannedRuntime": "public/models/environment/transit-barrier-v2.glb",
+      "environmentIdentity": {
+        "role": "low-transit-barricade",
+        "solid": true,
+        "accent": "#ff8800"
+      }
+    },
+    {
+      "id": "extraction-gate-v2",
+      "owner": "arena-environment",
+      "kind": "landmark",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-environment-concepts/extraction-gate.png",
+      "plannedRuntime": "public/models/environment/extraction-gate-v2.glb",
+      "environmentIdentity": {
+        "role": "walkthrough-extraction-arch",
+        "solid": false,
+        "accent": "#00f2ff"
+      }
+    },
+    {
+      "id": "bridge-ramp-v2",
+      "owner": "arena-environment",
+      "kind": "traversal-prop",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-environment-concepts/bridge-ramp.png",
+      "plannedRuntime": "public/models/environment/bridge-ramp-v2.glb",
+      "environmentIdentity": {
+        "role": "short-modular-ramp",
+        "solid": false,
+        "accent": "#00f2ff"
+      }
+    },
+    {
+      "id": "destroyed-cyber-car-v1",
+      "owner": "arena-destruction",
+      "kind": "vehicle-wreck",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-destruction-concepts/destroyed-cyber-car.png",
+      "plannedRuntime": "public/models/environment/destroyed-cyber-car.glb",
+      "environmentIdentity": {
+        "role": "small-street-wreck",
+        "solid": true,
+        "accent": "#00f2ff"
+      }
+    },
+    {
+      "id": "destroyed-transit-bus-v1",
+      "owner": "arena-destruction",
+      "kind": "vehicle-wreck",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-destruction-concepts/destroyed-transit-bus.png",
+      "plannedRuntime": "public/models/environment/destroyed-transit-bus.glb",
+      "environmentIdentity": {
+        "role": "large-street-wreck",
+        "solid": true,
+        "accent": "#00f2ff"
+      }
+    },
+    {
+      "id": "burning-collapsed-facade-v1",
+      "owner": "arena-destruction",
+      "kind": "destroyed-building",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-destruction-concepts/burning-collapsed-facade.png",
+      "plannedRuntime": "public/models/environment/burning-collapsed-facade.glb",
+      "environmentIdentity": {
+        "role": "boss-destruction-ruin",
+        "solid": true,
+        "accent": "#ff5a24"
+      }
+    },
+    {
+      "id": "boss-impact-crater-v1",
+      "owner": "arena-destruction",
+      "kind": "cataclysm-terrain",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-destruction-concepts/boss-impact-crater.png",
+      "plannedRuntime": "public/models/environment/boss-impact-crater.glb",
+      "environmentIdentity": {
+        "role": "boss-arrival-impact-zone",
+        "solid": false,
+        "accent": "#ff5a24"
+      }
+    },
+    {
+      "id": "cyber-street-tree-v1",
+      "owner": "arena-vegetation",
+      "kind": "living-street-tree",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-vegetation-concepts/cyber-street-tree.png",
+      "plannedRuntime": "public/models/environment/cyber-street-tree.glb",
+      "environmentIdentity": {
+        "role": "living-street-vegetation",
+        "solid": false,
+        "accent": "#00ffb2"
+      }
+    },
+    {
+      "id": "burned-cyber-tree-v1",
+      "owner": "arena-vegetation",
+      "kind": "burned-street-tree",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-vegetation-concepts/burned-cyber-tree.png",
+      "plannedRuntime": "public/models/environment/burned-cyber-tree.glb",
+      "environmentIdentity": {
+        "role": "cataclysm-vegetation",
+        "solid": false,
+        "accent": "#ff5a24"
+      }
+    },
+    {
+      "id": "verdant-energy-bush-v1",
+      "owner": "arena-vegetation",
+      "kind": "living-street-bush",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-vegetation-concepts/verdant-energy-bush.png",
+      "plannedRuntime": "public/models/environment/verdant-energy-bush.glb"
+    },
+    {
+      "id": "rail-swamp-bush-v1",
+      "owner": "arena-vegetation",
+      "kind": "swamp-bush",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-vegetation-concepts/rail-swamp-bush.png",
+      "plannedRuntime": "public/models/environment/rail-swamp-bush.glb"
+    },
+    {
+      "id": "cyber-rail-segment-v1",
+      "owner": "arena-environment",
+      "kind": "modular-rail",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-environment-concepts/cyber-rail-segment.png",
+      "plannedRuntime": "public/models/environment/cyber-rail-segment.glb"
+    },
+    {
+      "id": "orbital-incendiary-missile-v1",
+      "owner": "arena-boss-event",
+      "kind": "boss-projectile",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-projectiles/orbital-incendiary-missile.png",
+      "plannedRuntime": "public/models/projectiles/orbital-incendiary-missile.glb"
+    },
+    {
+      "id": "health-core-v1",
+      "owner": "arena-drop",
+      "kind": "health-pickup",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-pickups/health-core.png",
+      "plannedRuntime": "public/models/pickups/health-core.glb"
+    },
+    {
+      "id": "verdant-rift-yard-biome",
+      "owner": "arena-biome",
+      "kind": "district-art",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-biomes/verdant-rift-yard.png",
+      "plannedRuntime": "public/images/maps/arena/verdant-rift-yard.webp"
+    },
+    {
+      "id": "flooded-rail-marsh-biome",
+      "owner": "arena-biome",
+      "kind": "district-art",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-biomes/flooded-rail-marsh.png",
+      "plannedRuntime": "public/images/maps/arena/flooded-rail-marsh.webp"
+    },
+    {
+      "id": "sunken-reservoir-biome",
+      "owner": "arena-biome",
+      "kind": "district-art",
+      "status": "runtime-approved",
+      "reference": "assets/originals/imported/arena-biomes/sunken-reservoir.png",
+      "plannedRuntime": "public/images/maps/arena/sunken-reservoir.webp"
+    },
+    {
+      "id": "relic-warrior-greatsword-v1",
+      "owner": "arena-class-weapons",
+      "kind": "warrior-greatsword",
+      "status": "meshy-approved",
+      "reference": "assets/originals/imported/arena-relic-weapons/relic-warrior-greatsword.png",
+      "plannedRuntime": "public/models/weapons/relic-warrior-greatsword-web.glb"
+    },
+    {
+      "id": "relic-rogue-monoblade-v1",
+      "owner": "arena-class-weapons",
+      "kind": "rogue-twin-blade-source",
+      "status": "meshy-approved",
+      "reference": "assets/originals/imported/arena-relic-weapons/relic-rogue-monoblade.png",
+      "plannedRuntime": "public/models/weapons/relic-rogue-monoblade-web.glb"
+    },
+    {
+      "id": "relic-warlock-glaive-v1",
+      "owner": "arena-class-weapons",
+      "kind": "warlock-glaive",
+      "status": "meshy-approved",
+      "reference": "assets/originals/imported/arena-relic-weapons/relic-warlock-glaive.png",
+      "plannedRuntime": "public/models/weapons/relic-warlock-glaive-web.glb"
+    }
+  ]
+}
