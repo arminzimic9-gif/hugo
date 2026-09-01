@@ -139,8 +139,13 @@ export default function NeuralHub() {
     () => new Set(stats.unlockedOperators ?? ["vanguard"]),
     [stats.unlockedOperators]
   );
-  const activeSector = SECTORS.find((sector) => sector.id === selectedSectorId) ?? SECTORS[0];
-  const activeHero = getHeroDefinition(hero.archetype);
+  
+  // Override active sector and hero colors to Bloody Red for Outriders aesthetic
+  const outridersRed = "#cc0000";
+  const activeSector = { ...(SECTORS.find((sector) => sector.id === selectedSectorId) ?? SECTORS[0]), color: outridersRed };
+  const originalHero = getHeroDefinition(hero.archetype);
+  const activeHero = { ...originalHero, accent: outridersRed };
+
   const activeClass = ARENA_CLASSES[hero.archetype];
   const activeArtifactDefinition = ARTIFACT_WEAPONS[hero.archetype];
   const activeArtifact = stats.artifactWeapons[hero.archetype];
@@ -236,12 +241,12 @@ export default function NeuralHub() {
       <header className="relative z-20 border-b border-white/10 bg-[#020405]/96">
         <div className="flex min-h-20 flex-wrap items-center justify-between gap-x-4 px-4 py-3 md:flex-nowrap md:px-7">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-cyan-300/35 bg-cyan-300/5">
-              <CircleDot className="h-5 w-5 text-cyan-200" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-red-600/35 bg-red-600/5">
+              <CircleDot className="h-5 w-5 text-red-500" />
             </div>
             <div>
               <div className="font-display text-lg tracking-normal text-white">HUGO</div>
-              <div className="font-mono text-[8px] uppercase tracking-normal text-cyan-200/70">
+              <div className="font-mono text-[8px] uppercase tracking-normal text-red-500/70">
                 Control Deck / {activeView}
               </div>
             </div>
@@ -292,15 +297,32 @@ export default function NeuralHub() {
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.18 }}
-            className="grid min-h-[calc(100vh-116px)] grid-cols-1 lg:h-full lg:min-h-0 lg:grid-cols-[310px_minmax(360px,1fr)_340px] xl:grid-cols-[330px_minmax(460px,1fr)_370px]"
+            className="absolute inset-0 flex"
           >
-            <aside className="border-r border-white/10 bg-black/78 p-4 lg:overflow-y-auto lg:p-5 app-scroll">
+            {/* BACKGROUND LAYER - Covers entire screen */}
+            <div className="absolute inset-0 z-0">
+              {missionPreviewImage && (
+                <Image
+                  key={missionPreviewImage}
+                  src={missionPreviewImage}
+                  alt={`${activeSector.name} mission environment`}
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-cover opacity-60"
+                />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-r from-[#1a0000]/90 via-red-900/10 to-[#1a0000]/90" />
+            </div>
+
+            {/* LEFT COLUMN - Floating */}
+            <aside className="relative z-10 w-[400px] h-full p-8 flex flex-col justify-center gap-6 overflow-y-auto custom-scrollbar">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Available systems</div>
                   <h1 className="mt-1 font-display text-xl tracking-normal">MISSIONS</h1>
                 </div>
-                <Radio className="h-4 w-4 text-cyan-200" />
+                <Radio className="h-4 w-4 text-red-500" />
               </div>
 
               <div className="space-y-1.5">
@@ -314,10 +336,7 @@ export default function NeuralHub() {
                       onClick={() => chooseSector(sector)}
                       disabled={locked}
                       className="group relative flex w-full items-center gap-3 border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-30"
-                      style={{
-                        borderColor: active ? `${sector.color}99` : "rgba(255,255,255,0.08)",
-                        background: active ? `${sector.color}16` : "rgba(0,0,0,0.48)",
-                      }}
+                      style={{ borderColor: active ? sector.color : "transparent", background: active ? `${sector.color}20` : "transparent", backdropFilter: "blur(8px)" }}
                     >
                       <div
                         className="flex h-9 w-9 shrink-0 items-center justify-center border font-mono text-[10px]"
@@ -374,222 +393,25 @@ export default function NeuralHub() {
                 </div>
               </div>
             </aside>
-
-            <section className="relative isolate min-h-[520px] overflow-hidden bg-[#030607] lg:min-h-0">
-              {missionPreviewImage && (
-                <Image
-                  key={missionPreviewImage}
-                  src={missionPreviewImage}
-                  alt={`${activeSector.name} mission environment`}
-                  fill
-                  priority
-                  sizes="(min-width: 1024px) 50vw, 100vw"
-                  className="object-cover opacity-80"
-                />
-              )}
-              <div className="pointer-events-none absolute inset-0 bg-black/30" />
-              <div className="pointer-events-none absolute inset-0 opacity-25 scanlines" />
-
-              <div className="absolute left-5 top-5 border-l pl-3 lg:left-7 lg:top-7" style={{ borderColor: activeSector.color }}>
-                <div className="font-mono text-[8px] uppercase tracking-normal" style={{ color: activeSector.color }}>Mission environment</div>
-                <div className="font-display text-lg uppercase tracking-normal text-white">{activeSector.name}</div>
-                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-400">{activeSector.descriptor}</div>
-              </div>
-
-              <motion.div
+            
+            {/* CENTER - Empty space for character/background */}
+            <div className="relative z-10 flex-1 flex flex-col justify-end p-12">
+               <motion.div
                 key={`${activeSector.id}-${selectedLevel}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-[#020405]/92 px-5 py-5 lg:px-7"
+                className="max-w-2xl"
               >
-                <div className="flex items-center gap-2 font-mono text-[8px] uppercase tracking-normal" style={{ color: activeSector.color }}>
-                  <Target className="h-3.5 w-3.5" /> {activeSector.name} / {levelTag}
+                <div className="flex items-center gap-3 font-mono text-[10px] tracking-[0.3em] uppercase" style={{ color: activeSector.color }}>
+                  <Target className="h-4 w-4" /> {activeSector.name} // {levelTag}
                 </div>
-                <div className="mt-1 break-words font-display text-2xl uppercase tracking-normal text-white md:text-3xl">{activeIntel.title}</div>
-                <div className="mt-1 font-mono text-[10px] text-gray-400">{activeIntel.subtitle}</div>
+                <div className="mt-2 font-display text-5xl tracking-wide uppercase text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">{activeIntel.title}</div>
+                <div className="mt-3 font-mono text-xs tracking-wider text-gray-300">{activeIntel.subtitle}</div>
               </motion.div>
-            </section>
+            </div>
 
-            <aside className="border-l border-white/10 bg-black/78 p-5 lg:overflow-y-auto lg:p-6 app-scroll">
-              <div className="border-b border-white/10 pb-5">
-                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Mission briefing</div>
-                <div className="mt-2 flex items-end justify-between gap-4">
-                  <div>
-                    <div className="font-display text-2xl uppercase tracking-normal text-white">{activeIntel.title}</div>
-                    <div className="font-mono text-[9px] uppercase tracking-normal" style={{ color: activeSector.color }}>{activeSector.name} / {levelTag}</div>
-                  </div>
-                  <div className="font-display text-4xl leading-none text-white">{String(((selectedLevel - 1) % LEVELS_PER_SECTOR) + 1).padStart(2, "0")}</div>
-                </div>
-              </div>
-
-              <div className="border-b border-white/10 py-5">
-                <div className="mb-3 font-mono text-[8px] uppercase tracking-normal text-gray-500">Objectives</div>
-                <div className="space-y-3">
-                  {activeIntel.objectives.slice(0, 4).map((objective, index) => (
-                    <div key={objective} className="flex items-start gap-3 font-mono text-[10px] leading-relaxed text-gray-300">
-                      <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center border text-[7px]" style={{ borderColor: `${activeSector.color}88`, color: activeSector.color }}>
-                        {index + 1}
-                      </span>
-                      <span>{objective}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-b border-white/10 py-5">
-                <div className="mb-2 flex items-center justify-between font-mono text-[8px] uppercase tracking-normal text-gray-500">
-                  <span>Arena state</span>
-                  <span>
-                    {activeSector.isTesting
-                      ? "READY"
-                      : `${completedLevels.filter((level) => getSectorForLevel(level) === activeSector.id).length}/${LEVELS_PER_SECTOR}`}
-                  </span>
-                </div>
-                <div className="h-1 bg-white/10">
-                  <div
-                    className="h-full"
-                    style={{
-                      width: activeSector.isTesting
-                        ? "100%"
-                        : `${Math.min(100, (completedLevels.filter((level) => getSectorForLevel(level) === activeSector.id).length / LEVELS_PER_SECTOR) * 100)}%`,
-                      background: activeSector.color,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="py-5">
-                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Active class</div>
-                <div className="mt-2 flex items-center justify-between border border-white/10 bg-black/50 px-3 py-3">
-                  <div>
-                    <div className="font-mono text-[10px] text-white">{activeHero.label}</div>
-                    <div className="font-mono text-[8px] text-gray-500">{activeHero.role}</div>
-                  </div>
-                  <button type="button" onClick={() => setActiveView("classes")} className="font-mono text-[8px] uppercase tracking-normal text-cyan-200 hover:text-white">
-                    Change
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={deploy}
-                className="group flex w-full items-center justify-between border px-4 py-4 text-left transition-colors"
-                style={{ borderColor: activeSector.color, background: `${activeSector.color}16` }}
-              >
-                <div>
-                  <div className="font-mono text-[8px] uppercase tracking-normal" style={{ color: activeSector.color }}>Launch sequence</div>
-                  <div className="mt-1 font-display text-xl uppercase tracking-normal text-white">Deploy</div>
-                </div>
-                <div className="flex h-11 w-11 items-center justify-center" style={{ background: activeSector.color, color: "#030405" }}>
-                  <Play className="h-5 w-5 fill-current" />
-                </div>
-              </button>
-            </aside>
-          </motion.section>
-        )}
-
-        {activeView === "classes" && (
-          <motion.section
-            key="classes"
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.18 }}
-            className="grid min-h-[calc(100vh-116px)] grid-cols-1 lg:h-full lg:min-h-0 lg:grid-cols-[300px_minmax(360px,1fr)_360px] xl:grid-cols-[330px_minmax(460px,1fr)_390px]"
-          >
-            <aside className="border-r border-white/10 bg-black/78 p-4 lg:overflow-y-auto lg:p-5 app-scroll">
-              <div className="mb-5">
-                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Available protocols</div>
-                <h1 className="mt-1 font-display text-xl uppercase tracking-normal">CLASSES</h1>
-              </div>
-              <div className="space-y-2">
-                {HERO_ARCHETYPES.map((archetype) => {
-                  const definition = HEROES[archetype];
-                  const selected = hero.archetype === archetype;
-                  const unlocked = unlockedOperators.has(archetype);
-                  return (
-                    <button
-                      key={archetype}
-                      type="button"
-                      disabled={!unlocked}
-                      onClick={() => {
-                        if (unlocked) {
-                          setHeroProfile({ codename: hero.codename, archetype, accent: definition.accent });
-                        }
-                      }}
-                      className="relative flex w-full items-center gap-3 border p-2 text-left transition-colors"
-                      style={{
-                        borderColor: selected ? definition.accent : "rgba(255,255,255,0.1)",
-                        background: selected ? `${definition.accent}12` : "rgba(0,0,0,0.45)",
-                        opacity: unlocked ? 1 : 0.42,
-                      }}
-                    >
-                      <div className="relative flex h-20 w-16 shrink-0 items-center justify-center overflow-hidden bg-black">
-                        <span className="font-display text-3xl" style={{ color: definition.accent }}>
-                          {definition.label.slice(0, 1)}
-                        </span>
-                        {!unlocked ? (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/70">
-                            <LockKeyhole className="h-5 w-5 text-white/70" />
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate font-display text-base uppercase tracking-normal text-white">{definition.label}</div>
-                        <div className="mt-1 truncate font-mono text-[8px] uppercase tracking-normal" style={{ color: definition.accent }}>{ARENA_OPERATORS[archetype].weaponName}</div>
-                        <div className="mt-1 truncate font-mono text-[8px] text-gray-500">
-                          {unlocked
-                            ? definition.role
-                            : `UNLOCK · RUN ${ARENA_OPERATORS[archetype].unlockRun}`}
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 shrink-0" style={{ color: selected ? definition.accent : "#3b4048" }} />
-                      {selected && <span className="absolute inset-y-0 left-0 w-px" style={{ background: definition.accent }} />}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="mt-6 border-t border-white/10 pt-5">
-                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Class filter</div>
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {["S", "A", "B"].map((rank, index) => (
-                    <div key={rank} className={`flex h-9 items-center justify-center border font-mono text-[9px] ${index === 0 ? "border-white/25 text-white" : "border-white/8 text-gray-700"}`}>
-                      {rank}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </aside>
-
-            <section className="relative isolate min-h-[620px] overflow-hidden bg-[#030607] lg:min-h-0">
-              <motion.div key={hero.archetype} className="pointer-events-none absolute -inset-3" style={{ x: heroX, y: heroY }}>
-                <div className="operative-signal-in absolute inset-0">
-                  <OperativeModel
-                    modelUrl={activePilot.model}
-                    accent={activeHero.accent}
-                    label={`${activePilot.label} · ${activeHero.label}`}
-                    fallbackImage={activePilot.image}
-                  />
-                </div>
-              </motion.div>
-              <TelemetryRing accent={hero.accent} className="left-1/2 top-[47%] z-[1] -translate-x-1/2 -translate-y-1/2" />
-              <div className="pointer-events-none absolute inset-0 z-[2] bg-black/8" />
-              <div className="pointer-events-none absolute inset-0 z-[2] opacity-24 scanlines" />
-
-              <div className="absolute left-5 top-5 z-10 border-l pl-3 lg:left-7 lg:top-7" style={{ borderColor: hero.accent }}>
-                <div className="font-mono text-[8px] uppercase tracking-normal" style={{ color: hero.accent }}>Active pilot class</div>
-                <div className="font-display text-xl uppercase tracking-normal text-white">{activePilot.label}</div>
-                <div className="font-mono text-[8px] uppercase tracking-normal text-gray-400">{activeHero.label} / {activeHero.role}</div>
-              </div>
-
-              <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/10 bg-[#020405]/90 px-5 py-5 lg:px-7">
-                <div className="font-mono text-[8px] uppercase tracking-normal" style={{ color: hero.accent }}>Class profile</div>
-                <div className="mt-2 max-w-2xl font-mono text-[10px] leading-relaxed text-gray-300">{activeHero.lore}</div>
-              </div>
-            </section>
-
-            <aside className="border-l border-white/10 bg-black/78 p-5 lg:overflow-y-auto lg:p-6 app-scroll">
+            {/* RIGHT COLUMN - Floating */}
+            <aside className="relative z-10 w-[420px] h-full p-8 flex flex-col justify-center bg-gradient-to-l from-black/60 to-transparent overflow-y-auto custom-scrollbar">
               <div className="flex items-start justify-between border-b border-white/10 pb-5">
                 <div>
                   <div className="font-mono text-[8px] uppercase tracking-normal text-gray-500">Operative class</div>
@@ -764,7 +586,7 @@ export default function NeuralHub() {
           >
             <aside className="border-r border-white/10 bg-black/78 p-5 lg:overflow-y-auto app-scroll">
               <div className="border-b border-white/10 pb-5">
-                <div className="font-mono text-[8px] uppercase tracking-normal text-cyan-200/65">Human operator</div>
+                <div className="font-mono text-[8px] uppercase tracking-normal text-red-500/65">Human operator</div>
                 <h1 className="mt-1 font-display text-2xl uppercase tracking-normal text-white">PILOT</h1>
                 <div className="mt-2 font-mono text-[9px] leading-relaxed text-gray-500">
                   The human pilot is permanent. Crafted gear improves combat stats without replacing the pilot body.
@@ -851,7 +673,7 @@ export default function NeuralHub() {
               <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/10 bg-black/85 px-6 py-4">
                 <div className="flex items-center justify-between gap-4 font-mono text-[8px]">
                   <span className="text-gray-500">ANIMATION LINK</span>
-                  <span className="text-cyan-200">IDLE / WALK RIG ONLINE</span>
+                  <span className="text-red-500">IDLE / WALK RIG ONLINE</span>
                 </div>
               </div>
             </section>
@@ -916,13 +738,13 @@ export default function NeuralHub() {
           >
             <section className="p-5 lg:overflow-y-auto lg:p-8 app-scroll">
               <div className="mb-7 border-b border-white/10 pb-5">
-                <div className="font-mono text-[8px] uppercase tracking-normal text-cyan-200/65">Progression network</div>
+                <div className="font-mono text-[8px] uppercase tracking-normal text-red-500/65">Progression network</div>
                 <h1 className="mt-1 font-display text-2xl uppercase tracking-normal text-white">SYSTEMS</h1>
               </div>
 
               <div className="divide-y divide-white/10 border-y border-white/10">
                 <button type="button" onClick={() => router.push("/skills")} className="flex w-full items-center gap-4 py-5 text-left transition-colors hover:bg-white/[0.025]">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-cyan-300/30 text-cyan-200"><Wrench className="h-5 w-5" /></div>
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-cyan-300/30 text-red-500"><Wrench className="h-5 w-5" /></div>
                   <div className="min-w-0 flex-1">
                     <div className="font-display text-lg uppercase tracking-normal text-white">Talent and Crafting Network</div>
                     <div className="mt-1 font-mono text-[9px] text-gray-500">Skills, circular crafting nodes and equipped gear.</div>
@@ -997,7 +819,7 @@ export default function NeuralHub() {
           >
             <div className="mb-6 flex items-end justify-between gap-4 border-b border-white/10 pb-5">
               <div>
-                <div className="font-mono text-[8px] uppercase tracking-normal text-cyan-200/65">Operative record</div>
+                <div className="font-mono text-[8px] uppercase tracking-normal text-red-500/65">Operative record</div>
                 <h1 className="mt-1 font-display text-2xl uppercase tracking-normal text-white">AWARDS</h1>
               </div>
               <div className="text-right"><div className="font-display text-3xl text-white">{unlockedAchievements.length}/{ACHIEVEMENTS.length}</div><div className="font-mono text-[8px] text-gray-500">UNLOCKED</div></div>
@@ -1007,7 +829,7 @@ export default function NeuralHub() {
                 const unlocked = unlockedAchievements.includes(achievement.id);
                 return (
                   <div key={achievement.id} className="flex min-h-24 items-start gap-3 border border-white/10 bg-black/45 p-4">
-                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center border ${unlocked ? "border-cyan-300/50 text-cyan-200" : "border-white/10 text-gray-700"}`}>
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center border ${unlocked ? "border-cyan-300/50 text-red-500" : "border-white/10 text-gray-700"}`}>
                       {unlocked ? <Award className="h-4 w-4" /> : <LockKeyhole className="h-4 w-4" />}
                     </div>
                     <div className="min-w-0">

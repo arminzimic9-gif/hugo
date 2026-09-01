@@ -44,69 +44,75 @@ type TreeLayout = {
 
 // Jedno veliko stablo: redovi po dubini, X pozicija = prosjek roditelja
 // (barycenter) pa razmicanje sudara — grane teku prirodno prema dolje.
+
+// V Rising style layout: Central trunk with left/right branches
 function layoutTree(
   nodes: TreeNodeInput[],
   laneMap: Record<string, number> = {}
 ): TreeLayout {
   const byId = Object.fromEntries(nodes.map((node) => [node.id, node]));
   const depthMemo: Record<string, number> = {};
+  
   const depthOf = (id: string): number => {
     if (depthMemo[id] !== undefined) return depthMemo[id];
-    depthMemo[id] = 0; // guard protiv ciklusa
+    depthMemo[id] = 0;
     const node = byId[id];
     const parents = (node?.requires ?? []).filter((req) => byId[req]);
     const depth = parents.length ? 1 + Math.max(...parents.map(depthOf)) : 0;
     depthMemo[id] = depth;
     return depth;
   };
+  
   nodes.forEach((node) => depthOf(node.id));
-
   const maxDepth = Math.max(...nodes.map((node) => depthMemo[node.id]));
   const rows = maxDepth + 1;
-  const rowBuckets: Record<number, string[]> = {};
-  for (const node of nodes) (rowBuckets[depthMemo[node.id]] ??= []).push(node.id);
 
   const positions: Record<string, { x: number; y: number }> = {};
-  for (let row = 0; row <= maxDepth; row++) {
-    const ids = rowBuckets[row] ?? [];
-    // 1) sirova pozicija: lane (korijen grane) ili prosjek roditelja
-    const raw = ids.map((id) => {
-      const node = byId[id];
-      const parents = node.requires.filter((req) => positions[req]);
-      const laneKey = laneMap[id] !== undefined ? id : undefined;
-      const x =
-        laneKey !== undefined
-          ? laneMap[id]
-          : parents.length
-            ? parents.reduce((sum, req) => sum + positions[req].x, 0) / parents.length
-            : 50;
-      return { id, x };
-    });
-    // 2) braca sa istim X se rasire oko roditelja
-    const groups = new Map<number, typeof raw>();
-    for (const item of raw) {
-      const key = Math.round(item.x);
-      const group = groups.get(key) ?? [];
-      group.push(item);
-      groups.set(key, group);
-    }
-    for (const group of groups.values()) {
-      if (group.length > 1) {
-        group.forEach((item, index) => {
-          item.x += (index - (group.length - 1) / 2) * 11;
-        });
+  
+  // Custom branches lanes for V Rising aesthetic
+  // Trunk: core, convergence, __weapon, etc.
+  for (const node of nodes) {
+    const depth = depthMemo[node.id];
+    const y = ((depth + 0.5) / rows) * 100;
+    
+    // Determine X based on laneMap or branch
+    let x = 50;
+    
+    // If it's a trait tree (artifact weapon)
+    if (node.id === "__weapon" || node.id.startsWith("v_") || node.id.startsWith("s_") || node.id.startsWith("ve_")) {
+      // Artifact Weapon layout: central trunk, slight left/right offsets if same depth
+      x = 50;
+    } else {
+      // Skill Matrix layout
+      // We can use laneMap provided from the component
+      if (laneMap[node.id] !== undefined) {
+        x = laneMap[node.id];
       }
     }
-    // 3) globalni min razmak u redu
-    raw.sort((a, b) => a.x - b.x);
-    for (let i = 1; i < raw.length; i++) {
-      if (raw[i].x - raw[i - 1].x < 8) raw[i].x = raw[i - 1].x + 8;
+    
+    positions[node.id] = { x, y };
+  }
+  
+  // Resolve collisions in X for same Y
+  const rowBuckets: Record<number, string[]> = {};
+  for (const node of nodes) (rowBuckets[depthMemo[node.id]] ??= []).push(node.id);
+  
+  for (let row = 0; row <= maxDepth; row++) {
+    const ids = rowBuckets[row] ?? [];
+    const byX = new Map<number, string[]>();
+    for (const id of ids) {
+      const x = positions[id].x;
+      const group = byX.get(x) ?? [];
+      group.push(id);
+      byX.set(x, group);
     }
-    for (const item of raw) {
-      positions[item.id] = {
-        x: Math.max(5, Math.min(95, item.x)),
-        y: ((row + 0.5) / rows) * 100,
-      };
+    
+    for (const [x, group] of byX.entries()) {
+      if (group.length > 1) {
+        group.forEach((id, index) => {
+          positions[id].x += (index - (group.length - 1) / 2) * 15; // Spread out horizontal
+        });
+      }
     }
   }
 
@@ -117,6 +123,7 @@ function layoutTree(
   return { positions, edges, rows };
 }
 
+
 const BRANCH_ORDER: SkillBranch[] = ["assault", "fortitude", "mobility", "control", "convergence"];
 
 const TIER_CORES = [
@@ -125,10 +132,11 @@ const TIER_CORES = [
   { tier: 3 as const, numeral: "III", core: "MYTHIC CORE", boss: "THE HOLLOW CROWN" },
 ];
 
+
 function DiamondNode({
   color,
   state,
-  size = 48,
+  size = 56,
   children,
 }: {
   color: string;
@@ -136,30 +144,49 @@ function DiamondNode({
   size?: number;
   children?: React.ReactNode;
 }) {
-  const borderColor = state === "locked" ? "#2c3440" : color;
+  const borderColor = state === "locked" ? "#1e222a" : color;
+  const isSelected = state === "selected" || state === "active";
+  
   return (
-    <span
-      className="flex rotate-45 items-center justify-center border bg-[#05080b] transition-all"
-      style={{
-        width: size,
-        height: size,
-        borderColor,
-        borderWidth: state === "active" ? 2 : 1,
-        color: state === "locked" ? "#4e5865" : color,
-        boxShadow:
-          state === "active"
-            ? `0 0 18px ${color}55`
+    <div className="relative group" style={{ width: size, height: size }}>
+      {/* V Rising style outer glow / border */}
+      {isSelected && (
+        <div 
+          className="absolute inset-0 rotate-45 scale-[1.3] opacity-40 blur-md transition-all duration-500" 
+          style={{ backgroundColor: color }} 
+        />
+      )}
+      
+      <span
+        className={`absolute inset-0 flex rotate-45 items-center justify-center border transition-all duration-300 ${isSelected ? 'bg-[#1a0505]/40' : 'bg-black/60'} backdrop-blur-md`}
+        style={{
+          borderColor,
+          borderWidth: isSelected ? 2 : 1,
+          color: state === "locked" ? "#4e5865" : color,
+          boxShadow: isSelected
+            ? `inset 0 0 15px ${color}40, 0 0 20px ${color}30`
             : state === "ready"
-              ? `0 0 12px ${color}33`
-              : state === "selected"
-                ? `0 0 10px ${color}44`
-                : undefined,
-      }}
-    >
-      <span className="-rotate-45">{children}</span>
-    </span>
+              ? `inset 0 0 10px ${color}15, 0 0 10px ${color}20`
+              : "none",
+          transform: `rotate(45deg) scale(${isSelected ? 1.05 : 1})`,
+        }}
+      >
+        <span className="-rotate-45 relative z-10 transition-transform duration-300 group-hover:scale-110">
+          {children}
+        </span>
+        
+        {/* V Rising inner corner details */}
+        {state !== "locked" && (
+          <>
+            <div className="absolute top-1 left-1 w-2 h-2 border-t border-l" style={{ borderColor: color, opacity: 0.5 }}></div>
+            <div className="absolute bottom-1 right-1 w-2 h-2 border-b border-r" style={{ borderColor: color, opacity: 0.5 }}></div>
+          </>
+        )}
+      </span>
+    </div>
   );
 }
+
 
 export default function SkillsPage() {
   const router = useRouter();
@@ -170,6 +197,20 @@ export default function SkillsPage() {
   const [selectedTraitId, setSelectedTraitId] = useState<string | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState(CRAFTING_RECIPES[0]?.id);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Override branch colors to Bloody Red for V Rising aesthetic
+  const getBranchColor = (branch: string) => {
+    const reds: Record<string, string> = {
+      core: "#ff3333",
+      assault: "#ff0000",
+      fortitude: "#cc0000",
+      mobility: "#ff4d4d",
+      control: "#990000",
+      convergence: "#ff1a1a",
+    };
+    return reds[branch] || "#ff0000";
+  };
+
 
   useEffect(() => {
     const finishHydration = () => setMounted(true);
@@ -201,22 +242,29 @@ export default function SkillsPage() {
 
   // Jedno veliko stablo: grane krecu iz core-a na fiksnim lane-ovima,
   // dublji cvorovi se pozicioniraju ispod svojih roditelja.
+  
   const matrixLayout = useMemo(() => {
+    // V Rising layout: Core/Convergence in center (50), Assault/Fortitude left (25, 10), Mobility/Control right (75, 90)
     const BRANCH_LANES: Record<string, number> = {
-      assault: 15,
-      mobility: 38,
-      control: 62,
-      fortitude: 85,
+      core: 50,
       convergence: 50,
+      assault: 35,
+      fortitude: 15,
+      mobility: 65,
+      control: 85,
     };
+    
     const laneMap: Record<string, number> = {};
     for (const node of ARENA_SKILL_NODES) {
-      if (node.requires.length === 1 && node.requires[0] === "core") {
-        laneMap[node.id] = BRANCH_LANES[node.branch] ?? 50;
+      // Find original branch from data to assign lane
+      const dataNode = ARENA_SKILL_NODES.find(n => n.id === node.id);
+      if (dataNode) {
+        laneMap[node.id] = BRANCH_LANES[dataNode.branch] ?? 50;
       }
     }
     return layoutTree(ARENA_SKILL_NODES, laneMap);
   }, []);
+
 
   // Oruzje je korijen stabla; bazni traitovi izlaze direktno iz njega.
   const traitLayout = useMemo(() => {

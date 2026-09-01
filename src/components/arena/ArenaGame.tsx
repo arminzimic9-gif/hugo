@@ -836,8 +836,8 @@ function StoryTransmissionHud() {
   return <HadesStyleTransmission transmission={transmission} onDismiss={dismiss} />;
 }
 
-// Hades-style dijalog u sci-fi fazonu: veliki portret govornika koji izlazi iznad
-// okvira, name plate sa epitetom i uokvirena replika sa "continue" indikatorom.
+// Hades-style dijalog u sci-fi fazonu: GIGANTSKI portret govornika koji dominira ekranom,
+// masivni name plate sa epitetom i uokvirena replika sa "continue" indikatorom.
 function HadesStyleTransmission({
   transmission,
   onDismiss,
@@ -854,93 +854,106 @@ function HadesStyleTransmission({
 
   return (
     <div className="pointer-events-auto fixed inset-0 z-40" role="presentation" onClick={onDismiss}>
-      {/* Fokus zavjesa: igra je pauzirana, dijalog je jedina svijetla tacka */}
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
-      <div className="absolute inset-x-0 bottom-24 flex justify-center px-4 sm:bottom-32">
-      <div
-        key={transmission.id}
-        role="button"
-        tabIndex={0}
-        onClick={(event) => {
-          event.stopPropagation();
-          onDismiss();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") onDismiss();
-        }}
-        className="relative w-full max-w-3xl cursor-pointer text-left"
-      >
-        {portrait ? (
-          <div
-            className="absolute bottom-2 left-0 z-10 h-64 w-44 select-none"
-            style={{
-              WebkitMaskImage: "linear-gradient(to top, black 72%, transparent 98%)",
-              maskImage: "linear-gradient(to top, black 72%, transparent 98%)",
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={portrait}
-              alt={speaker.name}
-              className="h-full w-full object-cover object-top"
-              style={
-                speaker.silhouette
-                  ? { filter: "brightness(0.16) saturate(0.15) contrast(1.5)" }
-                  : { filter: `drop-shadow(0 0 22px ${transmission.color}55)` }
-              }
-            />
-          </div>
-        ) : null}
-
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-all duration-500" />
+      
+      {/* Container aligned to bottom of screen */}
+      <div className="absolute inset-x-0 bottom-16 flex justify-center px-4">
         <div
-          className="relative z-20 ml-36 inline-flex items-baseline gap-3 border bg-[#04070d]/95 px-5 py-2 backdrop-blur-md"
-          style={{
-            borderColor: transmission.color,
-            boxShadow: `0 0 24px ${transmission.color}33`,
-            clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 100%, 0 100%)",
+          key={transmission.id}
+          role="button"
+          tabIndex={0}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDismiss();
           }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") onDismiss();
+          }}
+          className="relative w-full max-w-5xl cursor-pointer text-left flex items-end"
         >
-          <span
-            className="font-display text-xl tracking-[0.24em] text-white"
-            style={{ textShadow: `0 0 14px ${transmission.color}88` }}
-          >
-            {speaker.name}
-          </span>
-          <span className="text-[9px] tracking-[0.28em]" style={{ color: transmission.color }}>
-            {speaker.epithet.toUpperCase()}
-          </span>
-        </div>
+          {/* GIGANTIC PORTRAIT */}
+          {portrait ? (
+            <div
+              className="absolute bottom-0 left-[-80px] z-30 h-[800px] w-[600px] select-none pointer-events-none"
+              style={{
+                WebkitMaskImage: "linear-gradient(to top, black 85%, transparent 98%)",
+                maskImage: "linear-gradient(to top, black 85%, transparent 98%)",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={portrait}
+                alt={speaker.name}
+                className="h-full w-full object-cover object-bottom"
+                style={
+                  speaker.silhouette
+                    ? { filter: "brightness(0.12) saturate(0.1) contrast(1.8)" }
+                    : { filter: `drop-shadow(0 0 40px ${transmission.color}40)` }
+                }
+              />
+            </div>
+          ) : null}
 
-        <div
-          className="relative ml-32 border bg-[#03060c]/95 py-5 pl-16 pr-8 backdrop-blur-md"
-          style={{
-            borderColor: `${transmission.color}80`,
-            boxShadow: `0 0 44px ${transmission.color}1f, inset 0 0 60px rgba(0,0,0,.5)`,
-            clipPath:
-              "polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%)",
-          }}
-        >
-          <div className="text-[8px] tracking-[0.32em] text-gray-500">
-            {transmission.chapter} · {transmission.title.toUpperCase()}
+          {/* TEXT CONTENT CONTAINER */}
+          <div className="relative w-full pl-[360px] z-40">
+            {/* NAMEPLATE */}
+            <div
+              className="relative inline-flex items-end gap-6 border-t-2 border-r-2 border-l-[6px] bg-[#020408]/95 px-8 py-3 backdrop-blur-xl mb-[-2px] z-50"
+              style={{
+                borderColor: transmission.color,
+                borderLeftColor: transmission.color,
+                boxShadow: `0 -10px 40px ${transmission.color}22`,
+                clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 100%, 0 100%)",
+              }}
+            >
+              <span
+                className="font-display text-4xl tracking-[0.15em] text-white"
+                style={{ textShadow: `0 0 20px ${transmission.color}aa` }}
+              >
+                {speaker.name}
+              </span>
+              <span className="text-[12px] font-bold tracking-[0.4em] mb-1" style={{ color: transmission.color }}>
+                {speaker.epithet.toUpperCase()}
+              </span>
+            </div>
+
+            {/* MESSAGE BOX */}
+            <div
+              className="relative border-2 bg-[#02040a]/95 py-10 pl-16 pr-12 backdrop-blur-xl"
+              style={{
+                borderColor: `${transmission.color}90`,
+                boxShadow: `0 20px 60px ${transmission.color}20, inset 0 0 80px rgba(0,0,0,.8)`,
+                clipPath: "polygon(0 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%)",
+              }}
+            >
+              <div className="text-[10px] font-bold tracking-[0.4em] text-gray-500 mb-4 border-b border-white/5 pb-3">
+                {transmission.chapter} // {transmission.title.toUpperCase()}
+              </div>
+              <div className="mt-4 max-w-[65ch] text-2xl leading-[1.6] text-gray-100 font-medium">
+                {transmission.body}
+              </div>
+              
+              {/* CONTINUE INDICATOR */}
+              <div
+                className="absolute bottom-6 right-8 animate-bounce flex items-center gap-3"
+                style={{ color: transmission.color }}
+              >
+                <span className="font-mono text-[9px] tracking-[0.3em] uppercase opacity-60">Click / Space to continue</span>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
+              </div>
+              
+              {/* BACKGROUND TEXTURE */}
+              <div
+                className="pointer-events-none absolute inset-0 opacity-[0.03]"
+                style={{
+                  background: "repeating-linear-gradient(to bottom, transparent 0 2px, #ffffff 2px 3px)",
+                }}
+              />
+            </div>
           </div>
-          <div className="mt-2 max-w-[56ch] text-sm leading-relaxed text-gray-100">
-            {transmission.body}
-          </div>
-          <div
-            className="absolute bottom-2 right-4 animate-bounce text-xs"
-            style={{ color: transmission.color }}
-          >
-            ▼
-          </div>
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.05]"
-            style={{
-              background:
-                "repeating-linear-gradient(to bottom, transparent 0 2px, #ffffff 2px 3px)",
-            }}
-          />
         </div>
-      </div>
       </div>
     </div>
   );
