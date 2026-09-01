@@ -45,7 +45,8 @@ type TreeLayout = {
 // Jedno veliko stablo: redovi po dubini, X pozicija = prosjek roditelja
 // (barycenter) pa razmicanje sudara — grane teku prirodno prema dolje.
 
-// V Rising style layout: Central trunk with left/right branches
+
+// Horizontal Tree Layout: Root on the left, expanding to the right
 function layoutTree(
   nodes: TreeNodeInput[],
   laneMap: Record<string, number> = {}
@@ -65,52 +66,44 @@ function layoutTree(
   
   nodes.forEach((node) => depthOf(node.id));
   const maxDepth = Math.max(...nodes.map((node) => depthMemo[node.id]));
-  const rows = maxDepth + 1;
+  const cols = maxDepth + 1;
 
   const positions: Record<string, { x: number; y: number }> = {};
   
-  // Custom branches lanes for V Rising aesthetic
-  // Trunk: core, convergence, __weapon, etc.
   for (const node of nodes) {
     const depth = depthMemo[node.id];
-    const y = ((depth + 0.5) / rows) * 100;
+    // X is now depth (left to right), scaled from 10% to 90%
+    const x = ((depth + 0.5) / cols) * 100;
     
-    // Determine X based on laneMap or branch
-    let x = 50;
-    
-    // If it's a trait tree (artifact weapon)
+    // Y is based on laneMap or branch spread
+    let y = 50;
     if (node.id === "__weapon" || node.id.startsWith("v_") || node.id.startsWith("s_") || node.id.startsWith("ve_")) {
-      // Artifact Weapon layout: central trunk, slight left/right offsets if same depth
-      x = 50;
-    } else {
-      // Skill Matrix layout
-      // We can use laneMap provided from the component
-      if (laneMap[node.id] !== undefined) {
-        x = laneMap[node.id];
-      }
+      y = 50;
+    } else if (laneMap[node.id] !== undefined) {
+      y = laneMap[node.id];
     }
     
     positions[node.id] = { x, y };
   }
   
-  // Resolve collisions in X for same Y
-  const rowBuckets: Record<number, string[]> = {};
-  for (const node of nodes) (rowBuckets[depthMemo[node.id]] ??= []).push(node.id);
+  // Resolve collisions in Y for same X
+  const colBuckets: Record<number, string[]> = {};
+  for (const node of nodes) (colBuckets[depthMemo[node.id]] ??= []).push(node.id);
   
-  for (let row = 0; row <= maxDepth; row++) {
-    const ids = rowBuckets[row] ?? [];
-    const byX = new Map<number, string[]>();
+  for (let col = 0; col <= maxDepth; col++) {
+    const ids = colBuckets[col] ?? [];
+    const byY = new Map<number, string[]>();
     for (const id of ids) {
-      const x = positions[id].x;
-      const group = byX.get(x) ?? [];
+      const y = positions[id].y;
+      const group = byY.get(y) ?? [];
       group.push(id);
-      byX.set(x, group);
+      byY.set(y, group);
     }
     
-    for (const [x, group] of byX.entries()) {
+    for (const [y, group] of byY.entries()) {
       if (group.length > 1) {
         group.forEach((id, index) => {
-          positions[id].x += (index - (group.length - 1) / 2) * 15; // Spread out horizontal
+          positions[id].y += (index - (group.length - 1) / 2) * 18; // Spread vertically
         });
       }
     }
@@ -120,8 +113,9 @@ function layoutTree(
     node.requires.filter((req) => byId[req]).map((req) => ({ from: req, to: node.id }))
   );
 
-  return { positions, edges, rows };
+  return { positions, edges, rows: cols };
 }
+
 
 
 const BRANCH_ORDER: SkillBranch[] = ["assault", "fortitude", "mobility", "control", "convergence"];
@@ -133,7 +127,8 @@ const TIER_CORES = [
 ];
 
 
-function DiamondNode({
+
+function CircleNode({
   color,
   state,
   size = 56,
@@ -149,43 +144,42 @@ function DiamondNode({
   
   return (
     <div className="relative group" style={{ width: size, height: size }}>
-      {/* V Rising style outer glow / border */}
+      {/* Glow effect */}
       {isSelected && (
         <div 
-          className="absolute inset-0 rotate-45 scale-[1.3] opacity-40 blur-md transition-all duration-500" 
+          className="absolute inset-0 scale-[1.4] opacity-30 blur-lg transition-all duration-500 rounded-full" 
           style={{ backgroundColor: color }} 
         />
       )}
       
       <span
-        className={`absolute inset-0 flex rotate-45 items-center justify-center border transition-all duration-300 ${isSelected ? 'bg-[#1a0505]/40' : 'bg-black/60'} backdrop-blur-md`}
+        className={`absolute inset-0 flex items-center justify-center border-2 rounded-full transition-all duration-300 ${isSelected ? 'bg-black/90' : 'bg-[#0a0a0c]'} backdrop-blur-md`}
         style={{
           borderColor,
-          borderWidth: isSelected ? 2 : 1,
           color: state === "locked" ? "#4e5865" : color,
           boxShadow: isSelected
-            ? `inset 0 0 15px ${color}40, 0 0 20px ${color}30`
+            ? `inset 0 0 15px ${color}50, 0 0 20px ${color}40`
             : state === "ready"
-              ? `inset 0 0 10px ${color}15, 0 0 10px ${color}20`
+              ? `inset 0 0 10px ${color}20, 0 0 10px ${color}20`
               : "none",
-          transform: `rotate(45deg) scale(${isSelected ? 1.05 : 1})`,
+          transform: `scale(${isSelected ? 1.08 : 1})`,
         }}
       >
-        <span className="-rotate-45 relative z-10 transition-transform duration-300 group-hover:scale-110">
+        <span className="relative z-10 transition-transform duration-300 group-hover:scale-110">
           {children}
         </span>
-        
-        {/* V Rising inner corner details */}
-        {state !== "locked" && (
-          <>
-            <div className="absolute top-1 left-1 w-2 h-2 border-t border-l" style={{ borderColor: color, opacity: 0.5 }}></div>
-            <div className="absolute bottom-1 right-1 w-2 h-2 border-b border-r" style={{ borderColor: color, opacity: 0.5 }}></div>
-          </>
-        )}
       </span>
+      
+      {/* Orbital ring for active/selected */}
+      {(state === "active" || state === "selected") && (
+         <svg className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] animate-[spin_10s_linear_infinite] opacity-50 pointer-events-none">
+            <circle cx="50%" cy="50%" r="48%" fill="none" stroke={color} strokeWidth="1" strokeDasharray="4 12" />
+         </svg>
+      )}
     </div>
   );
 }
+
 
 
 export default function SkillsPage() {
@@ -243,20 +237,20 @@ export default function SkillsPage() {
   // Jedno veliko stablo: grane krecu iz core-a na fiksnim lane-ovima,
   // dublji cvorovi se pozicioniraju ispod svojih roditelja.
   
+  
   const matrixLayout = useMemo(() => {
-    // V Rising layout: Core/Convergence in center (50), Assault/Fortitude left (25, 10), Mobility/Control right (75, 90)
+    // Horizontal layout: Core (50), Assault (20), Fortitude (35), Mobility (65), Control (80), Convergence (50)
     const BRANCH_LANES: Record<string, number> = {
       core: 50,
       convergence: 50,
-      assault: 35,
-      fortitude: 15,
-      mobility: 65,
+      assault: 15,
+      fortitude: 32,
+      mobility: 68,
       control: 85,
     };
     
     const laneMap: Record<string, number> = {};
     for (const node of ARENA_SKILL_NODES) {
-      // Find original branch from data to assign lane
       const dataNode = ARENA_SKILL_NODES.find(n => n.id === node.id);
       if (dataNode) {
         laneMap[node.id] = BRANCH_LANES[dataNode.branch] ?? 50;
@@ -264,6 +258,7 @@ export default function SkillsPage() {
     }
     return layoutTree(ARENA_SKILL_NODES, laneMap);
   }, []);
+
 
 
   // Oruzje je korijen stabla; bazni traitovi izlaze direktno iz njega.
@@ -448,7 +443,7 @@ export default function SkillsPage() {
                     className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
                     style={{ left: `${position.x}%`, top: `${position.y}%` }}
                   >
-                    <DiamondNode
+                    <CircleNode
                       color={isCore ? "#ffffff" : branch.color}
                       state={displayState}
                       size={isCore ? 58 : 46}
@@ -462,7 +457,7 @@ export default function SkillsPage() {
                       ) : (
                         <Lock className="h-3.5 w-3.5" />
                       )}
-                    </DiamondNode>
+                    </CircleNode>
                     <span
                       className="max-w-26 text-center font-mono text-[7px] leading-tight tracking-wide"
                       style={{
@@ -675,9 +670,9 @@ export default function SkillsPage() {
                       top: `${traitLayout.positions.__weapon.y}%`,
                     }}
                   >
-                    <DiamondNode color={artifactDefinition.color} state="active" size={64}>
+                    <CircleNode color={artifactDefinition.color} state="active" size={64}>
                       <Swords className="h-6 w-6" />
-                    </DiamondNode>
+                    </CircleNode>
                     <span
                       className="text-center font-mono text-[8px] tracking-[0.2em]"
                       style={{ color: artifactDefinition.color }}
@@ -700,7 +695,7 @@ export default function SkillsPage() {
                       className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
                       style={{ left: `${position.x}%`, top: `${position.y}%` }}
                     >
-                      <DiamondNode
+                      <CircleNode
                         color={artifactDefinition.color}
                         state={selectedTraitId === trait.id && nodeState === "locked" ? "selected" : nodeState}
                         size={52}
@@ -712,7 +707,7 @@ export default function SkillsPage() {
                         ) : (
                           <Lock className="h-4 w-4" />
                         )}
-                      </DiamondNode>
+                      </CircleNode>
                       <span
                         className="max-w-28 text-center font-mono text-[7px] leading-tight"
                         style={{ color: state.rank > 0 ? "#fff" : nodeState === "ready" ? artifactDefinition.color : "#59616c" }}
