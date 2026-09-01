@@ -42,7 +42,12 @@ type TreeLayout = {
   rows: number;
 };
 
-function layoutTree(nodes: TreeNodeInput[], rootIds: string[]): TreeLayout {
+// Jedno veliko stablo: redovi po dubini, X pozicija = prosjek roditelja
+// (barycenter) pa razmicanje sudara — grane teku prirodno prema dolje.
+function layoutTree(
+  nodes: TreeNodeInput[],
+  laneMap: Record<string, number> = {}
+): TreeLayout {
   const byId = Object.fromEntries(nodes.map((node) => [node.id, node]));
   const depthMemo: Record<string, number> = {};
   const depthOf = (id: string): number => {
@@ -56,33 +61,57 @@ function layoutTree(nodes: TreeNodeInput[], rootIds: string[]): TreeLayout {
   };
   nodes.forEach((node) => depthOf(node.id));
 
-  const depths = nodes.map((node) => depthMemo[node.id]);
-  const minDepth = Math.min(...depths);
-  const maxDepth = Math.max(...depths);
-  const rows = maxDepth - minDepth + 1;
-
+  const maxDepth = Math.max(...nodes.map((node) => depthMemo[node.id]));
+  const rows = maxDepth + 1;
   const rowBuckets: Record<number, string[]> = {};
-  for (const node of nodes) {
-    const row = depthMemo[node.id] - minDepth;
-    (rowBuckets[row] ??= []).push(node.id);
-  }
+  for (const node of nodes) (rowBuckets[depthMemo[node.id]] ??= []).push(node.id);
 
   const positions: Record<string, { x: number; y: number }> = {};
-  for (const [rowKey, ids] of Object.entries(rowBuckets)) {
-    const row = Number(rowKey);
-    ids.forEach((id, index) => {
-      positions[id] = {
-        x: ((index + 1) / (ids.length + 1)) * 100,
+  for (let row = 0; row <= maxDepth; row++) {
+    const ids = rowBuckets[row] ?? [];
+    // 1) sirova pozicija: lane (korijen grane) ili prosjek roditelja
+    const raw = ids.map((id) => {
+      const node = byId[id];
+      const parents = node.requires.filter((req) => positions[req]);
+      const laneKey = laneMap[id] !== undefined ? id : undefined;
+      const x =
+        laneKey !== undefined
+          ? laneMap[id]
+          : parents.length
+            ? parents.reduce((sum, req) => sum + positions[req].x, 0) / parents.length
+            : 50;
+      return { id, x };
+    });
+    // 2) braca sa istim X se rasire oko roditelja
+    const groups = new Map<number, typeof raw>();
+    for (const item of raw) {
+      const key = Math.round(item.x);
+      const group = groups.get(key) ?? [];
+      group.push(item);
+      groups.set(key, group);
+    }
+    for (const group of groups.values()) {
+      if (group.length > 1) {
+        group.forEach((item, index) => {
+          item.x += (index - (group.length - 1) / 2) * 11;
+        });
+      }
+    }
+    // 3) globalni min razmak u redu
+    raw.sort((a, b) => a.x - b.x);
+    for (let i = 1; i < raw.length; i++) {
+      if (raw[i].x - raw[i - 1].x < 8) raw[i].x = raw[i - 1].x + 8;
+    }
+    for (const item of raw) {
+      positions[item.id] = {
+        x: Math.max(5, Math.min(95, item.x)),
         y: ((row + 0.5) / rows) * 100,
       };
-    });
+    }
   }
 
   const edges = nodes.flatMap((node) =>
-    node.requires
-      .filter((req) => byId[req] || rootIds.includes(req))
-      .filter((req) => byId[req])
-      .map((req) => ({ from: req, to: node.id }))
+    node.requires.filter((req) => byId[req]).map((req) => ({ from: req, to: node.id }))
   );
 
   return { positions, edges, rows };
@@ -170,18 +199,36 @@ export default function SkillsPage() {
     return Boolean(node && !unlocked(id) && node.requires.every(unlocked));
   };
 
-  // Uredne kolone: po jedno mini-stablo za svaku granu.
-  const branchLayouts = useMemo(() => {
-    return BRANCH_ORDER.map((branchId) => {
-      const nodes = ARENA_SKILL_NODES.filter((node) => node.branch === branchId);
-      return { branchId, nodes, layout: layoutTree(nodes, ["core"]) };
-    });
+  // Jedno veliko stablo: grane krecu iz core-a na fiksnim lane-ovima,
+  // dublji cvorovi se pozicioniraju ispod svojih roditelja.
+  const matrixLayout = useMemo(() => {
+    const BRANCH_LANES: Record<string, number> = {
+      assault: 15,
+      mobility: 38,
+      control: 62,
+      fortitude: 85,
+      convergence: 50,
+    };
+    const laneMap: Record<string, number> = {};
+    for (const node of ARENA_SKILL_NODES) {
+      if (node.requires.length === 1 && node.requires[0] === "core") {
+        laneMap[node.id] = BRANCH_LANES[node.branch] ?? 50;
+      }
+    }
+    return layoutTree(ARENA_SKILL_NODES, laneMap);
   }, []);
 
-  const traitLayout = useMemo(
-    () => layoutTree(artifactDefinition.traits, []),
-    [artifactDefinition]
-  );
+  // Oruzje je korijen stabla; bazni traitovi izlaze direktno iz njega.
+  const traitLayout = useMemo(() => {
+    const nodes: TreeNodeInput[] = [
+      { id: "__weapon", requires: [] },
+      ...artifactDefinition.traits.map((trait) => ({
+        id: trait.id,
+        requires: trait.requires.length ? trait.requires : ["__weapon"],
+      })),
+    ];
+    return layoutTree(nodes);
+  }, [artifactDefinition]);
 
   if (!mounted || !username) return null;
 
@@ -289,94 +336,100 @@ export default function SkillsPage() {
               </p>
             </div>
 
-            {/* Core cvor iznad kolona */}
-            <div className="mb-4 flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => setSelectedSkillId("core")}
-                className="flex flex-col items-center gap-2"
-              >
-                <DiamondNode color="#ffffff" state={selectedSkillId === "core" ? "selected" : "active"} size={56}>
-                  <Cpu className="h-5 w-5" />
-                </DiamondNode>
-                <span className="font-mono text-[8px] tracking-[0.3em] text-white">HUGO CORE</span>
-              </button>
+            {/* Legenda grana */}
+            <div className="mb-3 flex flex-wrap gap-2">
+              {BRANCH_ORDER.map((branchId) => {
+                const branch = SKILL_BRANCHES[branchId];
+                const nodes = ARENA_SKILL_NODES.filter((node) => node.branch === branchId);
+                const active = nodes.filter((node) => unlocked(node.id)).length;
+                return (
+                  <div
+                    key={branchId}
+                    className="border border-white/10 bg-black/45 px-2.5 py-1.5 font-mono text-[7px] tracking-[0.2em]"
+                    style={{ color: branch.color }}
+                  >
+                    {branch.label} {active}/{nodes.length}
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Pet urednih kolona — po jedna za svaku granu */}
-            <div className="grid gap-3 md:grid-cols-3 2xl:grid-cols-5">
-              {branchLayouts.map(({ branchId, nodes, layout }) => {
-                const branch = SKILL_BRANCHES[branchId];
-                const active = nodes.filter((node) => unlocked(node.id)).length;
-                const panelHeight = Math.max(300, layout.rows * 108);
+            {/* JEDNO veliko stablo — sve grane rastu iz HUGO CORE */}
+            <div className="relative min-w-[880px] overflow-hidden border border-white/10 bg-black/35" style={{ height: Math.max(680, matrixLayout.rows * 150) }}>
+              <div
+                className="absolute inset-0 opacity-20"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px)",
+                  backgroundSize: "40px 40px",
+                }}
+              />
+              <svg className="pointer-events-none absolute inset-0 h-full w-full">
+                {matrixLayout.edges.map(({ from, to }) => {
+                  const a = matrixLayout.positions[from];
+                  const b = matrixLayout.positions[to];
+                  if (!a || !b) return null;
+                  const child = ARENA_SKILL_NODES.find((node) => node.id === to);
+                  const color = child ? SKILL_BRANCHES[child.branch].color : "#ffffff";
+                  const lit = unlocked(from) && unlocked(to);
+                  const half = unlocked(from);
+                  return (
+                    <line
+                      key={`${from}-${to}`}
+                      x1={`${a.x}%`} y1={`${a.y}%`} x2={`${b.x}%`} y2={`${b.y}%`}
+                      stroke={lit ? color : half ? `${color}55` : "#1c2330"}
+                      strokeWidth={lit ? 2.2 : 1}
+                    />
+                  );
+                })}
+              </svg>
+              {ARENA_SKILL_NODES.map((node) => {
+                const position = matrixLayout.positions[node.id];
+                if (!position) return null;
+                const branch = SKILL_BRANCHES[node.branch];
+                const isCore = node.id === "core";
+                const state = isCore ? "active" : skillNodeState(node);
+                const displayState =
+                  selectedSkillId === node.id && state === "locked" ? "selected" : state;
                 return (
-                  <div key={branchId} className="border border-white/10 bg-black/35">
-                    <div
-                      className="flex items-center justify-between border-b px-3 py-2 font-mono text-[8px] tracking-[0.22em]"
-                      style={{ borderColor: `${branch.color}44`, color: branch.color }}
+                  <button
+                    key={node.id}
+                    type="button"
+                    onClick={() => setSelectedSkillId(node.id)}
+                    onDoubleClick={() => buySkill(node.id)}
+                    className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
+                    style={{ left: `${position.x}%`, top: `${position.y}%` }}
+                  >
+                    <DiamondNode
+                      color={isCore ? "#ffffff" : branch.color}
+                      state={displayState}
+                      size={isCore ? 58 : 46}
                     >
-                      <span>{branch.label}</span>
-                      <span>{active}/{nodes.length}</span>
-                    </div>
-                    <div className="relative" style={{ height: panelHeight }}>
-                      <svg className="pointer-events-none absolute inset-0 h-full w-full">
-                        {layout.edges.map(({ from, to }) => {
-                          const a = layout.positions[from];
-                          const b = layout.positions[to];
-                          if (!a || !b) return null;
-                          const lit = unlocked(from) && unlocked(to);
-                          const half = unlocked(from);
-                          return (
-                            <line
-                              key={`${from}-${to}`}
-                              x1={`${a.x}%`} y1={`${a.y}%`} x2={`${b.x}%`} y2={`${b.y}%`}
-                              stroke={lit ? branch.color : half ? `${branch.color}55` : "#1d2430"}
-                              strokeWidth={lit ? 2 : 1}
-                            />
-                          );
-                        })}
-                      </svg>
-                      {nodes.map((node) => {
-                        const position = layout.positions[node.id];
-                        const state = skillNodeState(node);
-                        const displayState = selectedSkillId === node.id && state === "locked" ? "selected" : state;
-                        const crossRequires = node.requires.filter(
-                          (req) => req !== "core" && !nodes.some((sibling) => sibling.id === req)
-                        );
-                        return (
-                          <button
-                            key={node.id}
-                            type="button"
-                            onClick={() => setSelectedSkillId(node.id)}
-                            onDoubleClick={() => buySkill(node.id)}
-                            className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
-                            style={{ left: `${position.x}%`, top: `${position.y}%` }}
-                          >
-                            <DiamondNode color={branch.color} state={displayState} size={44}>
-                              {state === "active" ? (
-                                <Check className="h-4 w-4" />
-                              ) : state === "ready" ? (
-                                <Zap className="h-4 w-4" />
-                              ) : (
-                                <Lock className="h-3.5 w-3.5" />
-                              )}
-                            </DiamondNode>
-                            <span
-                              className="max-w-24 text-center font-mono text-[6.5px] leading-tight tracking-wide"
-                              style={{ color: state === "active" ? "#fff" : state === "ready" ? branch.color : "#59616c" }}
-                            >
-                              {node.label}
-                            </span>
-                            {crossRequires.length ? (
-                              <span className="font-mono text-[6px] text-gray-600">
-                                REQ: {crossRequires.join(" · ").toUpperCase()}
-                              </span>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                      {isCore ? (
+                        <Cpu className="h-5 w-5" />
+                      ) : state === "active" ? (
+                        <Check className="h-4 w-4" />
+                      ) : state === "ready" ? (
+                        <Zap className="h-4 w-4" />
+                      ) : (
+                        <Lock className="h-3.5 w-3.5" />
+                      )}
+                    </DiamondNode>
+                    <span
+                      className="max-w-26 text-center font-mono text-[7px] leading-tight tracking-wide"
+                      style={{
+                        color: isCore
+                          ? "#fff"
+                          : state === "active"
+                            ? "#fff"
+                            : state === "ready"
+                              ? branch.color
+                              : "#59616c",
+                      }}
+                    >
+                      {node.label}
+                    </span>
+                  </button>
                 );
               })}
             </div>
@@ -509,24 +562,82 @@ export default function SkillsPage() {
               <div className="border-b border-white/10 px-4 py-2 font-mono text-[8px] tracking-[0.24em] text-gray-500">
                 TRAIT TREE · ARTIFACT POWER → TRAIT POINTS → RANKS
               </div>
-              <div className="relative" style={{ height: Math.max(360, traitLayout.rows * 130) }}>
+              <div className="relative" style={{ height: Math.max(520, traitLayout.rows * 150) }}>
+                <div
+                  className="absolute inset-0 opacity-20"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px)",
+                    backgroundSize: "40px 40px",
+                  }}
+                />
+                {/* Tier separatori: isprekidana linija tamo gdje pocinje novi tier */}
+                {[2, 3].map((tier) => {
+                  const rowYs = artifactDefinition.traits
+                    .filter((trait) => trait.requiredTier === tier)
+                    .map((trait) => traitLayout.positions[trait.id]?.y ?? 0);
+                  if (!rowYs.length) return null;
+                  const y = Math.min(...rowYs) - 100 / traitLayout.rows / 2;
+                  const open = artifact.tier >= tier;
+                  return (
+                    <div
+                      key={tier}
+                      className="absolute inset-x-0 flex items-center gap-3 px-3"
+                      style={{ top: `${y}%` }}
+                    >
+                      <span
+                        className="shrink-0 font-mono text-[7px] tracking-[0.28em]"
+                        style={{ color: open ? artifactDefinition.color : "#4a5260" }}
+                      >
+                        TIER {tier} {open ? "· OPEN" : `· ${TIER_CORES[tier - 1].boss}`}
+                      </span>
+                      <span
+                        className="h-px flex-1"
+                        style={{
+                          backgroundImage: `repeating-linear-gradient(90deg, ${open ? artifactDefinition.color : "#333c49"} 0 8px, transparent 8px 16px)`,
+                          opacity: open ? 0.5 : 0.6,
+                        }}
+                      />
+                    </div>
+                  );
+                })}
                 <svg className="pointer-events-none absolute inset-0 h-full w-full">
                   {traitLayout.edges.map(({ from, to }) => {
                     const a = traitLayout.positions[from];
                     const b = traitLayout.positions[to];
                     if (!a || !b) return null;
-                    const lit = (artifact.traits[from] ?? 0) > 0 && (artifact.traits[to] ?? 0) > 0;
-                    const half = (artifact.traits[from] ?? 0) > 0;
+                    const fromLit = from === "__weapon" || (artifact.traits[from] ?? 0) > 0;
+                    const lit = fromLit && (artifact.traits[to] ?? 0) > 0;
                     return (
                       <line
                         key={`${from}-${to}`}
                         x1={`${a.x}%`} y1={`${a.y}%`} x2={`${b.x}%`} y2={`${b.y}%`}
-                        stroke={lit ? artifactDefinition.color : half ? `${artifactDefinition.color}55` : "#1d2430"}
-                        strokeWidth={lit ? 2 : 1}
+                        stroke={lit ? artifactDefinition.color : fromLit ? `${artifactDefinition.color}55` : "#1d2430"}
+                        strokeWidth={lit ? 2.2 : 1}
                       />
                     );
                   })}
                 </svg>
+                {/* Korijen stabla: samo oruzje */}
+                {traitLayout.positions.__weapon ? (
+                  <div
+                    className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
+                    style={{
+                      left: `${traitLayout.positions.__weapon.x}%`,
+                      top: `${traitLayout.positions.__weapon.y}%`,
+                    }}
+                  >
+                    <DiamondNode color={artifactDefinition.color} state="active" size={64}>
+                      <Swords className="h-6 w-6" />
+                    </DiamondNode>
+                    <span
+                      className="text-center font-mono text-[8px] tracking-[0.2em]"
+                      style={{ color: artifactDefinition.color }}
+                    >
+                      {artifact.tier > 0 ? artifactDefinition.name : artifactDefinition.prototype}
+                    </span>
+                  </div>
+                ) : null}
                 {artifactDefinition.traits.map((trait) => {
                   const position = traitLayout.positions[trait.id];
                   const state = traitState(trait);
