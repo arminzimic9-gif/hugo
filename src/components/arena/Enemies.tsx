@@ -113,6 +113,7 @@ function Enemy({
   const fireTimer = useRef(800 + Math.random() * Math.max(1, def.fireIntervalMs));
   const age = useRef(Math.random() * Math.PI * 2);
   const bossAbilityTimer = useRef(2200 + (spawned.id % 5) * 180);
+  const arrivalBarked = useRef(false);
   const bossAbilityFireAt = useRef(0);
 
   const handle = useMemo<EnemyHandle>(() => {
@@ -161,6 +162,19 @@ function Enemy({
     }
 
     age.current += dt;
+
+    // Boss barks: arrival na prvom aktivnom frameu (poslije HUGO transmisije,
+    // jer story pauza zaustavlja ovaj kod), half na 50% zdravlja. Once-guard u storeu.
+    if (isArenaBossTier(spawned.bossTier)) {
+      if (!arrivalBarked.current) {
+        arrivalBarked.current = true;
+        session.triggerBossBark(spawned.bossTier, "arrival");
+      }
+      if (handle.health <= def.health / 2) {
+        session.triggerBossBark(spawned.bossTier, "half");
+      }
+    }
+
     const dx = world.playerPosition.x - translation.x;
     const dz = world.playerPosition.z - translation.z;
     const dist = Math.hypot(dx, dz) || 0.001;
@@ -402,6 +416,8 @@ export default function Enemies() {
         ? session.recordBossUnitKill(bossTier, bossGroupSize ?? 1)
         : false;
       if (bossRewardReady && bossTier && session.environment === "surface") {
+        // Smrtni bark cuvara ide PRIJE HUGO-ove transmisije — boss ima zadnju rijec.
+        if (isArenaBossTier(bossTier)) session.triggerBossBark(bossTier, "death");
         const transmission = bossDefeatTransmission(bossTier);
         if (transmission) session.queueStoryTransmission(transmission);
       }

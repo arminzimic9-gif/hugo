@@ -7,6 +7,17 @@ import { ARENA_CONTRACTS_BY_ID, type ArenaContractKind } from "@/data/arenaContr
 import { arenaAudio } from "@/lib/arenaAudio";
 import { ARENA_POWER_DROPS, type ArenaPowerDropId } from "@/data/arenaPowerDrops";
 import type { ArenaStoryTransmissionId } from "@/data/arenaStory";
+import { ARENA_BOSSES, type ArenaBossBarkKind, type ArenaBossTier } from "@/data/arenaBosses";
+
+// Boss bark: kratka replika cuvara — NE pauzira igru, prikazuje se kao banner.
+export type ArenaBossBark = {
+  tier: ArenaBossTier;
+  kind: ArenaBossBarkKind;
+  label: string;
+  accent: string;
+  lines: string[];
+  shownAt: number;
+};
 
 export type ArenaPhase =
   | "briefing"
@@ -320,6 +331,8 @@ export interface ArenaSessionState {
   relicAugmentLevel: number;
   chassisCoreActive: boolean;
   storyTransmission: ArenaStoryTransmissionId | null;
+  bossBark: ArenaBossBark | null;
+  bossBarksShown: string[];
   storyTransmissionQueue: ArenaStoryTransmissionId[];
   testTimeScale: number;
   testInvulnerable: boolean;
@@ -357,6 +370,7 @@ export interface ArenaSessionState {
   collectBossReward: (rewardId: ArenaBossRewardId) => void;
   activatePowerDrop: (powerId: ArenaPowerDropId) => void;
   queueStoryTransmission: (transmissionId: ArenaStoryTransmissionId) => void;
+  triggerBossBark: (tier: ArenaBossTier, kind: ArenaBossBarkKind) => void;
   dismissStoryTransmission: () => void;
   setTestTimeScale: (multiplier: number) => void;
   setTestInvulnerable: (active: boolean) => void;
@@ -423,6 +437,8 @@ const initialSession = () => ({
   chassisCoreActive: false,
   storyTransmission: null as ArenaStoryTransmissionId | null,
   storyTransmissionQueue: [] as ArenaStoryTransmissionId[],
+  bossBark: null as ArenaBossBark | null,
+  bossBarksShown: [] as string[],
   testTimeScale: 1,
   testInvulnerable: false,
   testTargetElapsed: null as number | null,
@@ -948,6 +964,24 @@ export const useArenaSession = create<ArenaSessionState>()((set, get) => ({
           ? Math.max(state.buffs.overdriveMult, definition.effect.fireRateMult)
           : state.buffs.overdriveMult,
       },
+    });
+  },
+
+  triggerBossBark: (tier, kind) => {
+    const state = get();
+    const key = `${tier}:${kind}`;
+    if (state.bossBarksShown.includes(key)) return;
+    const boss = ARENA_BOSSES[tier];
+    set({
+      bossBark: {
+        tier,
+        kind,
+        label: boss.label,
+        accent: boss.accent,
+        lines: boss.barks[kind],
+        shownAt: performance.now(),
+      },
+      bossBarksShown: [...state.bossBarksShown, key],
     });
   },
 

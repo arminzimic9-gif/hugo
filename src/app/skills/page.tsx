@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, Cpu, Hammer, Lock, Sparkles, Swords, Zap } from "lucide-react";
+import { Check, ChevronLeft, Cpu, Hammer, Lock, Sparkles, Sword, Swords, Zap } from "lucide-react";
 import {
   ARTIFACT_WEAPONS,
   ARENA_CLASSES,
@@ -47,78 +47,13 @@ type TreeLayout = {
 
 
 // Horizontal Tree Layout: Root on the left, expanding to the right
-function layoutTree(
-  nodes: TreeNodeInput[],
-  laneMap: Record<string, number> = {}
-): TreeLayout {
-  const byId = Object.fromEntries(nodes.map((node) => [node.id, node]));
-  const depthMemo: Record<string, number> = {};
-  
-  const depthOf = (id: string): number => {
-    if (depthMemo[id] !== undefined) return depthMemo[id];
-    depthMemo[id] = 0;
-    const node = byId[id];
-    const parents = (node?.requires ?? []).filter((req) => byId[req]);
-    const depth = parents.length ? 1 + Math.max(...parents.map(depthOf)) : 0;
-    depthMemo[id] = depth;
-    return depth;
-  };
-  
-  nodes.forEach((node) => depthOf(node.id));
-  const maxDepth = Math.max(...nodes.map((node) => depthMemo[node.id]));
-  const cols = maxDepth + 1;
 
-  const positions: Record<string, { x: number; y: number }> = {};
-  
-  for (const node of nodes) {
-    const depth = depthMemo[node.id];
-    // X is now depth (left to right), scaled from 10% to 90%
-    const x = ((depth + 0.5) / cols) * 100;
-    
-    // Y is based on laneMap or branch spread
-    let y = 50;
-    if (node.id === "__weapon" || node.id.startsWith("v_") || node.id.startsWith("s_") || node.id.startsWith("ve_")) {
-      y = 50;
-    } else if (laneMap[node.id] !== undefined) {
-      y = laneMap[node.id];
-    }
-    
-    positions[node.id] = { x, y };
-  }
-  
-  // Resolve collisions in Y for same X
-  const colBuckets: Record<number, string[]> = {};
-  for (const node of nodes) (colBuckets[depthMemo[node.id]] ??= []).push(node.id);
-  
-  for (let col = 0; col <= maxDepth; col++) {
-    const ids = colBuckets[col] ?? [];
-    const byY = new Map<number, string[]>();
-    for (const id of ids) {
-      const y = positions[id].y;
-      const group = byY.get(y) ?? [];
-      group.push(id);
-      byY.set(y, group);
-    }
-    
-    for (const [y, group] of byY.entries()) {
-      if (group.length > 1) {
-        group.forEach((id, index) => {
-          positions[id].y += (index - (group.length - 1) / 2) * 18; // Spread vertically
-        });
-      }
-    }
-  }
 
-  const edges = nodes.flatMap((node) =>
-    node.requires.filter((req) => byId[req]).map((req) => ({ from: req, to: node.id }))
-  );
-
-  return { positions, edges, rows: cols };
-}
 
 
 
 const BRANCH_ORDER: SkillBranch[] = ["assault", "fortitude", "mobility", "control", "convergence"];
+
 
 const TIER_CORES = [
   { tier: 1 as const, numeral: "I", core: "ARTIFACT SPARK", boss: "AXIOM WARDEN" },
@@ -238,40 +173,26 @@ export default function SkillsPage() {
   // dublji cvorovi se pozicioniraju ispod svojih roditelja.
   
   
+  
   const matrixLayout = useMemo(() => {
-    // Horizontal layout: Core (50), Assault (20), Fortitude (35), Mobility (65), Control (80), Convergence (50)
-    const BRANCH_LANES: Record<string, number> = {
-      core: 50,
-      convergence: 50,
-      assault: 15,
-      fortitude: 32,
-      mobility: 68,
-      control: 85,
-    };
-    
-    const laneMap: Record<string, number> = {};
+    const positions: Record<string, { x: number; y: number }> = {};
     for (const node of ARENA_SKILL_NODES) {
-      const dataNode = ARENA_SKILL_NODES.find(n => n.id === node.id);
-      if (dataNode) {
-        laneMap[node.id] = BRANCH_LANES[dataNode.branch] ?? 50;
-      }
+      positions[node.id] = { x: node.x, y: node.y };
     }
-    return layoutTree(ARENA_SKILL_NODES, laneMap);
+    
+    const byId = Object.fromEntries(ARENA_SKILL_NODES.map((n) => [n.id, n]));
+    const edges = ARENA_SKILL_NODES.flatMap((node) =>
+      node.requires.filter((req) => byId[req]).map((req) => ({ from: req, to: node.id }))
+    );
+    
+    return { positions, edges };
   }, []);
 
 
 
+
   // Oruzje je korijen stabla; bazni traitovi izlaze direktno iz njega.
-  const traitLayout = useMemo(() => {
-    const nodes: TreeNodeInput[] = [
-      { id: "__weapon", requires: [] },
-      ...artifactDefinition.traits.map((trait) => ({
-        id: trait.id,
-        requires: trait.requires.length ? trait.requires : ["__weapon"],
-      })),
-    ];
-    return layoutTree(nodes);
-  }, [artifactDefinition]);
+  
 
   if (!mounted || !username) return null;
 
@@ -396,33 +317,52 @@ export default function SkillsPage() {
                 );
               })}
             </div>
-
-            {/* JEDNO veliko stablo — sve grane rastu iz HUGO CORE */}
-            <div className="relative min-w-[880px] overflow-hidden border border-white/10 bg-black/35" style={{ height: Math.max(680, matrixLayout.rows * 150) }}>
-              <div
-                className="absolute inset-0 opacity-20"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px)",
-                  backgroundSize: "40px 40px",
-                }}
-              />
-              <svg className="pointer-events-none absolute inset-0 h-full w-full">
-                {matrixLayout.edges.map(({ from, to }) => {
-                  const a = matrixLayout.positions[from];
-                  const b = matrixLayout.positions[to];
-                  if (!a || !b) return null;
-                  const child = ARENA_SKILL_NODES.find((node) => node.id === to);
-                  const color = child ? SKILL_BRANCHES[child.branch].color : "#ffffff";
-                  const lit = unlocked(from) && unlocked(to);
-                  const half = unlocked(from);
+          <div className="relative flex-1 flex items-center justify-center overflow-auto rounded-lg border border-white/5 bg-[#030406] shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] custom-scrollbar">
+            {/* Background grid */}
+            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+            
+            <div className="relative w-full max-w-[900px] aspect-square min-w-[800px] min-h-[800px] my-auto">
+              <svg className="absolute inset-0 h-full w-full pointer-events-none" style={{ filter: "drop-shadow(0 0 6px rgba(0,0,0,0.5))" }}>
+                <defs>
+                  {SKILL_BRANCHES && Object.entries(SKILL_BRANCHES).map(([id, branch]) => (
+                    <linearGradient key={id} id={`grad-${id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor={getBranchColor(id)} stopOpacity="0.8" />
+                      <stop offset="100%" stopColor={getBranchColor(id)} stopOpacity="0.2" />
+                    </linearGradient>
+                  ))}
+                </defs>
+                {matrixLayout.edges.map((edge) => {
+                  const from = matrixLayout.positions[edge.from];
+                  const to = matrixLayout.positions[edge.to];
+                  const toNode = ARENA_SKILL_NODES.find(n => n.id === edge.to);
+                  const isEdgeActive = unlocked(edge.to) || (unlocked(edge.from) && available(edge.to));
+                  const branchColor = toNode ? getBranchColor(toNode.branch) : "#4e5865";
+                  
+                  // Clean straight lines for the radial matrix
+                  const d = `M ${from.x}% ${from.y}% L ${to.x}% ${to.y}%`;
+                  
                   return (
-                    <line
-                      key={`${from}-${to}`}
-                      x1={`${a.x}%`} y1={`${a.y}%`} x2={`${b.x}%`} y2={`${b.y}%`}
-                      stroke={lit ? color : half ? `${color}55` : "#1c2330"}
-                      strokeWidth={lit ? 2.2 : 1}
-                    />
+                    <g key={`${edge.from}-${edge.to}`}>
+                      {/* Glow layer */}
+                      {isEdgeActive && (
+                        <path
+                          d={d}
+                          stroke={branchColor}
+                          strokeWidth="8"
+                          fill="none"
+                          className="opacity-20"
+                        />
+                      )}
+                      {/* Main line */}
+                      <path
+                        d={d}
+                        stroke={isEdgeActive ? branchColor : "#1e222a"}
+                        strokeWidth="3"
+                        strokeDasharray={isEdgeActive ? "none" : "6 6"}
+                        fill="none"
+                        className="transition-all duration-500"
+                      />
+                    </g>
                   );
                 })}
               </svg>
@@ -476,6 +416,7 @@ export default function SkillsPage() {
                 );
               })}
             </div>
+            </div>
           </div>
 
           <aside className="bg-black/55 p-6 xl:sticky xl:top-20 xl:h-[calc(100vh-80px)]">
@@ -527,276 +468,217 @@ export default function SkillsPage() {
       ) : null}
 
       {view === "artifact" ? (
-        <section className="mx-auto min-h-[calc(100vh-80px)] max-w-7xl p-5 lg:p-9">
+        <section className="mx-auto min-h-[calc(100vh-80px)] max-w-7xl p-5 lg:p-9 flex flex-col">
           <div className="mb-2 font-mono text-[8px] tracking-[0.25em]" style={{ color: artifactDefinition.color }}>
-            {classDefinition.fantasy} ARTIFACT · PER-CLASS PROGRESSION
+            {classDefinition.fantasy} ARTIFACT · WEAPON AUGMENTATION
           </div>
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <h1 className="font-display text-4xl tracking-[0.12em]">{artifactDefinition.name}</h1>
-            <div className="font-mono text-[9px] text-gray-500">STARTS AS · {artifactDefinition.prototype}</div>
+            <h1 className="font-display text-4xl tracking-[0.12em] uppercase">{artifactDefinition.name}</h1>
+            <div className="font-mono text-[9px] text-gray-500 uppercase">PROTOTYPE: {artifactDefinition.prototype}</div>
           </div>
 
-          {/* Tier kartice — Quironax stil: rimski broj, jezgra, power prsten */}
-          <div className="grid gap-3 md:grid-cols-3">
-            {TIER_CORES.map(({ tier, numeral, core, boss }) => {
-              const claimed = artifact.tier >= tier;
-              const isNext = artifact.tier === tier - 1;
-              const ringProgress = Math.min(1, artifact.power / artifactThreshold);
-              const circumference = 2 * Math.PI * 44;
-              return (
-                <div
-                  key={tier}
-                  className="relative flex items-center gap-5 border bg-black/40 p-5"
-                  style={{
-                    borderColor: claimed ? `${artifactDefinition.color}88` : isNext ? `${artifactDefinition.color}44` : "rgba(255,255,255,.08)",
-                    boxShadow: claimed ? `inset 0 0 40px ${artifactDefinition.color}0d` : undefined,
-                    opacity: claimed || isNext ? 1 : 0.55,
-                  }}
-                >
-                  <div className="relative h-24 w-24 shrink-0">
-                    <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-                      <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="3" />
-                      {claimed ? (
-                        <circle cx="50" cy="50" r="44" fill="none" stroke={artifactDefinition.color} strokeWidth="3" />
-                      ) : isNext ? (
-                        <circle
-                          cx="50" cy="50" r="44" fill="none"
-                          stroke={artifactDefinition.color} strokeWidth="3"
-                          strokeDasharray={`${ringProgress * circumference} ${circumference}`}
-                          strokeLinecap="butt"
-                        />
-                      ) : null}
-                    </svg>
-                    <div
-                      className="absolute inset-0 flex items-center justify-center font-display text-3xl"
-                      style={{ color: claimed || isNext ? artifactDefinition.color : "#3d4552" }}
-                    >
-                      {numeral}
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-display text-base tracking-[0.1em] text-white">{core}</div>
-                    <div className="mt-1 font-mono text-[8px] leading-relaxed text-gray-500">
-                      {claimed ? (
-                        <span style={{ color: artifactDefinition.color }}>CLAIMED</span>
-                      ) : (
-                        <>DEFEAT <span className="text-gray-300">{boss}</span></>
-                      )}
-                    </div>
-                    {isNext && !claimed ? (
-                      <div className="mt-2 font-mono text-[8px] text-gray-400">
-                        POWER {artifact.power}/{artifactThreshold} → +1 TRAIT POINT
-                      </div>
-                    ) : null}
-                    {claimed && tier === artifact.tier ? (
-                      <div className="mt-2 font-mono text-[8px]" style={{ color: artifactDefinition.color }}>
-                        {artifact.points} TRAIT POINT{artifact.points === 1 ? "" : "S"} · POWER {artifact.power}/{artifactThreshold}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Trait stablo — pravo stablo sa linijama, rank pipovima i tier kapijama */}
-          <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_330px]">
-            <div className="border border-white/10 bg-black/35">
-              <div className="border-b border-white/10 px-4 py-2 font-mono text-[8px] tracking-[0.24em] text-gray-500">
-                TRAIT TREE · ARTIFACT POWER → TRAIT POINTS → RANKS
-              </div>
-              <div className="relative" style={{ height: Math.max(520, traitLayout.rows * 150) }}>
-                <div
-                  className="absolute inset-0 opacity-20"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px)",
-                    backgroundSize: "40px 40px",
-                  }}
-                />
-                {/* Tier separatori: isprekidana linija tamo gdje pocinje novi tier */}
-                {[2, 3].map((tier) => {
-                  const rowYs = artifactDefinition.traits
-                    .filter((trait) => trait.requiredTier === tier)
-                    .map((trait) => traitLayout.positions[trait.id]?.y ?? 0);
-                  if (!rowYs.length) return null;
-                  const y = Math.min(...rowYs) - 100 / traitLayout.rows / 2;
-                  const open = artifact.tier >= tier;
-                  return (
-                    <div
-                      key={tier}
-                      className="absolute inset-x-0 flex items-center gap-3 px-3"
-                      style={{ top: `${y}%` }}
-                    >
-                      <span
-                        className="shrink-0 font-mono text-[7px] tracking-[0.28em]"
-                        style={{ color: open ? artifactDefinition.color : "#4a5260" }}
-                      >
-                        TIER {tier} {open ? "· OPEN" : `· ${TIER_CORES[tier - 1].boss}`}
-                      </span>
-                      <span
-                        className="h-px flex-1"
-                        style={{
-                          backgroundImage: `repeating-linear-gradient(90deg, ${open ? artifactDefinition.color : "#333c49"} 0 8px, transparent 8px 16px)`,
-                          opacity: open ? 0.5 : 0.6,
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-                <svg className="pointer-events-none absolute inset-0 h-full w-full">
-                  {traitLayout.edges.map(({ from, to }) => {
-                    const a = traitLayout.positions[from];
-                    const b = traitLayout.positions[to];
-                    if (!a || !b) return null;
-                    const fromLit = from === "__weapon" || (artifact.traits[from] ?? 0) > 0;
-                    const lit = fromLit && (artifact.traits[to] ?? 0) > 0;
-                    return (
-                      <line
-                        key={`${from}-${to}`}
-                        x1={`${a.x}%`} y1={`${a.y}%`} x2={`${b.x}%`} y2={`${b.y}%`}
-                        stroke={lit ? artifactDefinition.color : fromLit ? `${artifactDefinition.color}55` : "#1d2430"}
-                        strokeWidth={lit ? 2.2 : 1}
-                      />
-                    );
-                  })}
-                </svg>
-                {/* Korijen stabla: samo oruzje */}
-                {traitLayout.positions.__weapon ? (
-                  <div
-                    className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
-                    style={{
-                      left: `${traitLayout.positions.__weapon.x}%`,
-                      top: `${traitLayout.positions.__weapon.y}%`,
-                    }}
-                  >
-                    <CircleNode color={artifactDefinition.color} state="active" size={64}>
-                      <Swords className="h-6 w-6" />
-                    </CircleNode>
-                    <span
-                      className="text-center font-mono text-[8px] tracking-[0.2em]"
-                      style={{ color: artifactDefinition.color }}
-                    >
-                      {artifact.tier > 0 ? artifactDefinition.name : artifactDefinition.prototype}
-                    </span>
-                  </div>
-                ) : null}
-                {artifactDefinition.traits.map((trait) => {
-                  const position = traitLayout.positions[trait.id];
-                  const state = traitState(trait);
-                  const nodeState =
-                    state.rank > 0 ? "active" : state.tierMet && state.requirementsMet ? "ready" : "locked";
-                  return (
-                    <button
-                      key={trait.id}
-                      type="button"
-                      onClick={() => setSelectedTraitId(trait.id)}
-                      onDoubleClick={() => buyTrait(trait.id)}
-                      className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
-                      style={{ left: `${position.x}%`, top: `${position.y}%` }}
-                    >
-                      <CircleNode
-                        color={artifactDefinition.color}
-                        state={selectedTraitId === trait.id && nodeState === "locked" ? "selected" : nodeState}
-                        size={52}
-                      >
-                        {state.rank > 0 ? (
-                          <Sparkles className="h-4 w-4" />
-                        ) : nodeState === "ready" ? (
-                          <Zap className="h-4 w-4" />
-                        ) : (
-                          <Lock className="h-4 w-4" />
-                        )}
-                      </CircleNode>
-                      <span
-                        className="max-w-28 text-center font-mono text-[7px] leading-tight"
-                        style={{ color: state.rank > 0 ? "#fff" : nodeState === "ready" ? artifactDefinition.color : "#59616c" }}
-                      >
-                        {trait.label}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        {Array.from({ length: trait.maxRank }, (_, pip) => (
-                          <span
-                            key={pip}
-                            className="h-1 w-3"
-                            style={{
-                              background: pip < state.rank ? artifactDefinition.color : "rgba(255,255,255,.14)",
-                              boxShadow: pip < state.rank ? `0 0 6px ${artifactDefinition.color}66` : undefined,
-                            }}
-                          />
-                        ))}
-                      </span>
-                      {!state.tierMet ? (
-                        <span className="font-mono text-[6px] text-gray-600">TIER {trait.requiredTier}</span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="grid gap-6 lg:grid-cols-[1fr_360px] flex-1">
+            {/* The Horizontal Weapon Tree */}
+            <div className="relative flex-1 overflow-hidden border border-white/5 bg-[#030406] shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] rounded-lg flex items-center justify-center p-8">
+               <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+               
+               <div className="relative w-full max-w-[900px] h-full min-h-[500px]">
+                  {/* Edges */}
+                  <svg className="absolute inset-0 h-full w-full pointer-events-none" style={{ filter: "drop-shadow(0 0 6px rgba(0,0,0,0.5))" }}>
+                     {(() => {
+                        const POSITIONS = [
+                           { x: 12, y: 50 },
+                           { x: 38, y: 25 },
+                           { x: 38, y: 75 },
+                           { x: 68, y: 25 },
+                           { x: 68, y: 75 },
+                           { x: 92, y: 50 }
+                        ];
+                        
+                        return artifactDefinition.traits.flatMap((node, i) => {
+                           return node.requires.map(reqId => {
+                              const reqIndex = artifactDefinition.traits.findIndex(t => t.id === reqId);
+                              if (reqIndex === -1) return null;
+                              
+                              const from = POSITIONS[reqIndex];
+                              const to = POSITIONS[i];
+                              
+                              const isUnlocked = artifact.traits[reqId] > 0;
+                              const isToUnlocked = artifact.traits[node.id] > 0;
+                              const color = artifactDefinition.color;
+                              
+                              return (
+                                 <g key={`${reqId}-${node.id}`}>
+                                    {isToUnlocked && (
+                                       <line x1={`${from.x}%`} y1={`${from.y}%`} x2={`${to.x}%`} y2={`${to.y}%`} stroke={color} strokeWidth="8" className="opacity-20" />
+                                    )}
+                                    <line 
+                                       x1={`${from.x}%`} y1={`${from.y}%`} x2={`${to.x}%`} y2={`${to.y}%`} 
+                                       stroke={isToUnlocked ? color : isUnlocked ? `${color}55` : "#1e222a"} 
+                                       strokeWidth="3" 
+                                       strokeDasharray={isToUnlocked ? "none" : "6 6"}
+                                    />
+                                 </g>
+                              );
+                           });
+                        });
+                     })()}
+                  </svg>
+                  
+                  {/* Nodes */}
+                  {(() => {
+                        const POSITIONS = [
+                           { x: 12, y: 50 },
+                           { x: 38, y: 25 },
+                           { x: 38, y: 75 },
+                           { x: 68, y: 25 },
+                           { x: 68, y: 75 },
+                           { x: 92, y: 50 }
+                        ];
+                        
+                        return artifactDefinition.traits.map((node, i) => {
+                           const pos = POSITIONS[i];
+                           const rank = artifact.traits[node.id] || 0;
+                           const unlocked = rank > 0;
+                           const maxed = rank >= node.maxRank;
+                           const reqMet = !node.requires.length || node.requires.every(req => (artifact.traits[req] || 0) > 0);
+                           const open = artifact.tier >= node.requiredTier;
+                           const available = reqMet && open && !maxed && artifact.points >= node.cost;
+                           
+                           const isSelected = selectedTraitId === node.id;
+                           
+                           return (
+                              <button
+                                 key={node.id}
+                                 onClick={() => setSelectedTraitId(node.id)}
+                                 onDoubleClick={() => buyTrait(node.id)}
+                                 className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 group"
+                                 style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                              >
+                                 <div className="relative" style={{ width: i === 0 ? 80 : i === 5 ? 70 : 56, height: i === 0 ? 80 : i === 5 ? 70 : 56 }}>
+                                    {/* Main shape - Circle for artifact nodes */}
+                                    {(isSelected || unlocked) && (
+                                       <div className="absolute inset-0 scale-[1.3] opacity-20 blur-xl rounded-full" style={{ backgroundColor: artifactDefinition.color }} />
+                                    )}
+                                    
+                                    <div 
+                                       className={`absolute inset-0 border-2 flex items-center justify-center transition-all duration-300 rounded-full ${isSelected || unlocked ? 'bg-black/90' : 'bg-[#0a0a0c]'}`}
+                                       style={{
+                                          borderColor: open && reqMet ? artifactDefinition.color : "#1e222a",
+                                          boxShadow: isSelected || unlocked ? `inset 0 0 15px ${artifactDefinition.color}40` : "none",
+                                          transform: `scale(${isSelected ? 1.08 : 1})`,
+                                       }}
+                                    >
+                                       {i === 0 ? (
+                                          <Sword className="h-8 w-8" style={{ color: artifactDefinition.color }} />
+                                       ) : maxed ? (
+                                          <Check className="h-5 w-5" style={{ color: artifactDefinition.color }} />
+                                       ) : available ? (
+                                          <Zap className="h-5 w-5" style={{ color: artifactDefinition.color }} />
+                                       ) : (
+                                          <Lock className="h-4 w-4" style={{ color: open && reqMet ? artifactDefinition.color : "#4e5865" }} />
+                                       )}
+                                    </div>
+                                    
+                                    {/* Orbital ring */}
+                                    {(isSelected || unlocked) && (
+                                       <svg className="absolute -inset-2 w-[calc(100%+16px)] h-[calc(100%+16px)] animate-[spin_10s_linear_infinite] opacity-60 pointer-events-none">
+                                          <circle cx="50%" cy="50%" r="48%" fill="none" stroke={artifactDefinition.color} strokeWidth="2" strokeDasharray="6 12" />
+                                       </svg>
+                                    )}
+                                 </div>
+                                 
+                                 <div className="flex flex-col items-center mt-2">
+                                    <span className="max-w-28 text-center font-mono text-[8px] leading-tight tracking-wide" style={{ color: open && reqMet ? '#fff' : '#59616c' }}>
+                                       {node.label}
+                                    </span>
+                                    {/* Rank pips */}
+                                    <div className="mt-1 flex gap-1">
+                                       {Array.from({ length: node.maxRank }).map((_, rankIdx) => (
+                                          <div 
+                                             key={rankIdx} 
+                                             className="h-1.5 w-4" 
+                                             style={{ backgroundColor: rankIdx < rank ? artifactDefinition.color : "rgba(255,255,255,0.1)" }} 
+                                          />
+                                       ))}
+                                    </div>
+                                 </div>
+                              </button>
+                           );
+                        });
+                  })()}
+               </div>
             </div>
 
-            <aside className="border border-white/10 bg-black/55 p-6">
-              {selectedTrait ? (
-                (() => {
-                  const state = traitState(selectedTrait);
-                  return (
-                    <>
-                      <div className="font-mono text-[8px] tracking-[0.24em]" style={{ color: artifactDefinition.color }}>
-                        TIER {selectedTrait.requiredTier} TRAIT · RANK {state.rank}/{selectedTrait.maxRank}
-                      </div>
-                      <h2 className="mt-2 font-display text-2xl tracking-[0.1em]">{selectedTrait.label}</h2>
-                      <p className="mt-4 font-mono text-[11px] leading-relaxed text-gray-300">
+            {/* Side Panel for Trait Info */}
+            <aside className="bg-black/55 p-6 border border-white/5">
+               {selectedTrait ? (
+                  <>
+                     <div className="font-mono text-[8px] tracking-[0.24em] mb-2" style={{ color: artifactDefinition.color }}>
+                        TIER {selectedTrait.requiredTier} TRAIT
+                     </div>
+                     <h2 className="font-display text-2xl tracking-[0.1em]">{selectedTrait.label}</h2>
+                     
+                     <div className="mt-4 flex items-center justify-between border-b border-white/10 pb-4 font-mono text-[9px] uppercase">
+                        <span className="text-gray-500">Rank</span>
+                        <span style={{ color: artifactDefinition.color }}>
+                           {(artifact.traits[selectedTrait.id] || 0)} / {selectedTrait.maxRank}
+                        </span>
+                     </div>
+                     
+                     <p className="mt-5 font-mono text-[11px] leading-relaxed text-gray-300">
                         {selectedTrait.description}
-                      </p>
-                      <div className="mt-4 border-l-2 border-white/10 pl-3 font-mono text-[9px] leading-relaxed text-gray-500">
+                     </p>
+                     <div className="mt-4 border-l-2 pl-3 font-mono text-[9px] leading-relaxed text-gray-500" style={{ borderColor: artifactDefinition.color }}>
                         WHY: {selectedTrait.why}
-                      </div>
-                      <div className="mt-6 space-y-2 border-y border-white/10 py-5 font-mono text-[8px]">
+                     </div>
+                     
+                     <div className="mt-8 space-y-2 font-mono text-[8px]">
                         <div className="flex justify-between">
-                          <span className="text-gray-500">COST</span>
-                          <span>{selectedTrait.cost} TRAIT POINT{selectedTrait.cost === 1 ? "" : "S"}</span>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span className="text-gray-500">REQUIRES</span>
-                          <span className="text-right">
-                            {selectedTrait.requires.length ? selectedTrait.requires.join(" · ").toUpperCase() : "NONE"}
-                          </span>
+                           <span className="text-gray-500">COST</span>
+                           <span>{selectedTrait.cost} TRAIT POINT{selectedTrait.cost === 1 ? "" : "S"}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">GATE</span>
-                          <span>{state.tierMet ? "TIER OPEN" : `DEFEAT BOSS ${selectedTrait.requiredTier}`}</span>
+                           <span className="text-gray-500">REQUIRES</span>
+                           <span className="text-right">
+                              {selectedTrait.requires.length ? selectedTrait.requires.map(req => artifactDefinition.traits.find(t => t.id === req)?.label).join(" + ") : "NONE"}
+                           </span>
                         </div>
-                      </div>
-                      <button
+                     </div>
+                     
+                     {/* Tier requirements check */}
+                     {artifact.tier < selectedTrait.requiredTier && (
+                        <div className="mt-6 border border-red-500/20 bg-red-500/10 p-3 font-mono text-[9px] text-red-400">
+                           LOCKED: Defeat Boss {selectedTrait.requiredTier - 1} ({TIER_CORES[selectedTrait.requiredTier - 1].boss}) to open Tier {selectedTrait.requiredTier}.
+                        </div>
+                     )}
+                     
+                     <button
                         type="button"
-                        disabled={!state.canBuy}
+                        disabled={
+                           artifact.points < selectedTrait.cost ||
+                           (artifact.traits[selectedTrait.id] || 0) >= selectedTrait.maxRank ||
+                           artifact.tier < selectedTrait.requiredTier ||
+                           (!selectedTrait.requires.every(req => (artifact.traits[req] || 0) > 0) && selectedTrait.requires.length > 0)
+                        }
                         onClick={() => buyTrait(selectedTrait.id)}
-                        className="mt-6 w-full border px-4 py-4 text-left font-mono text-[9px] disabled:opacity-30"
-                        style={{ borderColor: artifactDefinition.color, color: artifactDefinition.color }}
-                      >
-                        {state.rank >= selectedTrait.maxRank
-                          ? "MAX RANK"
-                          : !state.tierMet
-                            ? `DEFEAT BOSS ${selectedTrait.requiredTier}`
-                            : !state.requirementsMet
-                              ? "PREREQUISITE LOCKED"
-                              : `UPGRADE · ${selectedTrait.cost} AP`}
-                      </button>
-                    </>
-                  );
-                })()
-              ) : (
-                <div className="font-mono text-[9px] leading-relaxed text-gray-500">
-                  <div className="mb-3 text-[8px] tracking-[0.24em] text-gray-400">HOW IT WORKS</div>
-                  Boss cores open tiers. Artifact Residue builds Power; each threshold grants a Trait
-                  Point. Click a trait to inspect it; double-click to upgrade.
-                  <div className="mt-5 space-y-3 border-t border-white/10 pt-5">
-                    <div><span className="text-gray-500">BOSS I</span><br />Artifact Spark — awakens the prototype, opens Tier 1.</div>
-                    <div><span className="text-gray-500">BOSS II</span><br />Class Augment — opens specialization traits.</div>
-                    <div><span className="text-gray-500">BOSS III</span><br />Mythic Core — capstone and the Underground gate.</div>
+                        className="mt-6 w-full border px-4 py-4 text-center font-mono text-[10px] tracking-widest disabled:opacity-20 transition-colors"
+                        style={{
+                           borderColor: artifactDefinition.color,
+                           color: artifactDefinition.color,
+                        }}
+                     >
+                        {(artifact.traits[selectedTrait.id] || 0) >= selectedTrait.maxRank 
+                           ? "MAX RANK REACHED" 
+                           : `UPGRADE · ${selectedTrait.cost} TP`
+                        }
+                     </button>
+                  </>
+               ) : (
+                  <div className="flex h-full items-center justify-center text-center font-mono text-[9px] text-gray-500">
+                     Select a trait to view details.
                   </div>
-                </div>
-              )}
+               )}
             </aside>
           </div>
         </section>
@@ -823,6 +705,7 @@ export default function SkillsPage() {
           </div>
         </section>
       ) : null}
+
       {notice ? <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 border border-cyan-300/40 bg-black/90 px-5 py-3 font-mono text-[9px] tracking-[0.18em] text-cyan-100">{notice}</div> : null}
     </main>
   );

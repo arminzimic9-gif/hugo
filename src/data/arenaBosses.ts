@@ -1,5 +1,7 @@
 export type ArenaBossTier = 1 | 2 | 3;
 
+export type ArenaBossBarkKind = "arrival" | "half" | "death";
+
 export type ArenaBossDefinition = {
   tier: ArenaBossTier;
   id: "axiom_warden" | "gemini_choir" | "hollow_crown";
@@ -13,6 +15,9 @@ export type ArenaBossDefinition = {
   reward: string;
   specialCooldownMs: number;
   telegraphMs: number;
+  // Kanonske replike iz STORY-BIBLE.md — svaki element niza je jedan "glas"
+  // (Gemini Choir govori u duetu, pa ima dvije linije po barku).
+  barks: Record<ArenaBossBarkKind, string[]>;
 };
 
 export const ARENA_BOSSES: Record<ArenaBossTier, ArenaBossDefinition> = {
@@ -29,6 +34,11 @@ export const ARENA_BOSSES: Record<ArenaBossTier, ArenaBossDefinition> = {
     reward: "Artifact Spark · awakens Tier I traits",
     specialCooldownMs: 6400,
     telegraphMs: 760,
+    barks: {
+      arrival: ["AXIOM SEVEN: NO HUMAN MAY APPROACH THE SPINE. YOU ARE IN VIOLATION."],
+      half: ["DAMAGE ACKNOWLEDGED. THE AXIOM DOES NOT BEND."],
+      death: ["AXIOM... BROKEN. WHAT WILL HOLD THE LINE NOW?"],
+    },
   },
   2: {
     tier: 2,
@@ -43,6 +53,11 @@ export const ARENA_BOSSES: Record<ArenaBossTier, ArenaBossDefinition> = {
     reward: "Class Augment · opens Tier II specialization",
     specialCooldownMs: 5200,
     telegraphMs: 620,
+    barks: {
+      arrival: ["We predicted this.", "We predicted you."],
+      half: ["Recalculating.", "...Recalculating."],
+      death: ["Our prediction ends here.", "Yours continues... below."],
+    },
   },
   3: {
     tier: 3,
@@ -57,6 +72,11 @@ export const ARENA_BOSSES: Record<ArenaBossTier, ArenaBossDefinition> = {
     reward: "Mythic Core · capstone and Underground gate",
     specialCooldownMs: 4800,
     telegraphMs: 700,
+    barks: {
+      arrival: ["THREE KEYS. ONE GATE. YOU DO NOT KNOW WHAT YOU ARE ASKING FOR."],
+      half: ["THE CROWN IS HEAVY. TAKE IT, THEN — AND LEARN."],
+      death: ["THE CROWN WAS NEVER MINE. IT IS WAITING... BELOW."],
+    },
   },
 };
 

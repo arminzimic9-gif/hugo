@@ -355,13 +355,12 @@ function Hud() {
           active={session.health / session.maxHealth <= 0.35}
         />
 
-        <div className="relative mb-1 min-w-0 w-full max-w-3xl border border-white/10 bg-[#03070d]/88 px-4 pb-3 pt-2 shadow-[0_18px_50px_rgba(0,0,0,.55)] backdrop-blur-md">
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-200/55 to-transparent" />
-          <div className="mb-2 flex items-center justify-between text-[7px] tracking-[0.22em] text-gray-500">
+        <div className="relative mb-1 min-w-0 w-full max-w-3xl px-4 pb-3 pt-2">
+          <div className="mb-2 flex items-center justify-between text-[7px] tracking-[0.22em] text-gray-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] font-bold">
             <span>LINK LV {session.xpLevel}</span>
-            <span className="text-cyan-100/65">{session.xp}/{session.xpNeeded} XP</span>
+            <span className="text-cyan-100">{session.xp}/{session.xpNeeded} XP</span>
           </div>
-          <div className="mb-3 h-1 overflow-hidden bg-white/[0.07]">
+          <div className="mb-3 h-1.5 overflow-hidden bg-black/40 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] rounded-sm backdrop-blur-sm border border-white/[0.05]">
             <div
               className="h-full transition-[width] duration-150"
               style={{
@@ -371,8 +370,10 @@ function Hud() {
               }}
             />
           </div>
-          <AbilityBar />
-          <div className="mt-2 flex items-center justify-between border-t border-white/[0.06] pt-2 text-[7px] tracking-[0.16em] text-gray-600">
+          <div className="drop-shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+            <AbilityBar />
+          </div>
+          <div className="mt-3 flex items-center justify-between pt-2 text-[7px] tracking-[0.16em] text-gray-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] font-bold">
             <span>{session.relicClass ? `RELIC / ${session.relicClass.toUpperCase()}` : "RELIC / UNBOUND"}</span>
             <span>{session.relicAugmentLevel > 0 ? `AUGMENT +${session.relicAugmentLevel}` : "AUGMENT / NONE"}</span>
             <span style={{ color: session.chassisCoreActive ? "#ffca58" : undefined }}>
@@ -537,6 +538,46 @@ function ComboMilestoneBanner() {
   );
 }
 
+// Kratka replika cuvara (STORY-BIBLE barks) — ne pauzira igru, sama nestaje.
+function BossBarkBanner() {
+  const bark = useArenaSession((state) => state.bossBark);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!bark) return;
+    setVisible(true);
+    const timeout = window.setTimeout(
+      () => setVisible(false),
+      3600 + bark.lines.length * 1100
+    );
+    return () => window.clearTimeout(timeout);
+  }, [bark]);
+  if (!bark || !visible) return null;
+  const duet = bark.lines.length > 1;
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-32 z-30 flex justify-center px-4">
+      <div
+        key={bark.shownAt}
+        className="w-full max-w-xl border-l-2 bg-black/85 px-5 py-3 backdrop-blur-md"
+        style={{ borderColor: bark.accent, boxShadow: `0 0 30px ${bark.accent}26` }}
+      >
+        <div className="font-mono text-[8px] tracking-[0.32em]" style={{ color: bark.accent }}>
+          {bark.label}
+        </div>
+        {bark.lines.map((line, index) => (
+          <div
+            key={index}
+            className={`mt-1.5 font-mono text-[11px] leading-relaxed text-gray-100 ${
+              duet && index % 2 === 1 ? "text-right italic text-gray-300" : ""
+            }`}
+          >
+            “{line}”
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function BossCataclysmBanner() {
   const latestZone = useArenaSession((state) => state.cataclysmZones.at(-1) ?? null);
   const [visible, setVisible] = useState(false);
@@ -579,10 +620,11 @@ function UpgradeOverlay({ onPicked }: { onPicked: (id: string) => void }) {
   const ranks = useArenaSession((s) => s.upgradeRanks);
   const chooseUpgrade = useArenaSession((s) => s.chooseUpgrade);
   return (
-    <OverlayFrame>
-      <div className="mb-1 text-[10px] tracking-[0.3em] text-gray-500">NEURAL LINK ESTABLISHED</div>
-      <div className="font-display mb-6 text-2xl tracking-[0.24em]">CHOOSE ONE:</div>
-      <div className="mx-auto flex max-w-2xl flex-col gap-3">
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#020306]/90 backdrop-blur-xl">
+      <div className="mb-4 text-[11px] tracking-[0.5em] text-cyan-400/70">NEURAL LINK ESTABLISHED</div>
+      <div className="font-display mb-14 text-5xl tracking-[0.3em] text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">CHOOSE ONE:</div>
+      
+      <div className="mx-auto flex w-full max-w-[1200px] items-stretch justify-center gap-6 px-8">
         {options.map((id) => {
           const upgrade = ARENA_UPGRADES.find((u) => u.id === id);
           if (!upgrade) return null;
@@ -590,7 +632,7 @@ function UpgradeOverlay({ onPicked }: { onPicked: (id: string) => void }) {
           const Icon = visual.Icon;
           const currentRank = ranks[id] ?? 0;
           const nextRank = currentRank + 1;
-          // Evolution steering: pokazi igracu kojoj evoluciji ovaj izbor vodi.
+          
           const evolutionHint = ARENA_EVOLUTIONS.map((evolution) => {
             const requirement = evolution.requirements.find((req) => req.id === id);
             if (!requirement) return null;
@@ -609,6 +651,7 @@ function UpgradeOverlay({ onPicked }: { onPicked: (id: string) => void }) {
           })
             .filter((hint): hint is NonNullable<typeof hint> => hint !== null)
             .sort((a, b) => a.totalRemaining - b.totalRemaining)[0];
+            
           return (
             <button
               key={id}
@@ -616,78 +659,79 @@ function UpgradeOverlay({ onPicked }: { onPicked: (id: string) => void }) {
                 chooseUpgrade(id);
                 onPicked(id);
               }}
-              className="group relative flex items-stretch gap-4 overflow-hidden border border-gray-800 p-4 text-left transition-all hover:scale-[1.015] hover:border-white/40"
+              className="group relative flex w-full max-w-[340px] flex-col overflow-hidden border border-gray-800 bg-[#05070d] p-8 text-left transition-all duration-300 hover:-translate-y-4 hover:border-white/40 hover:shadow-[0_30px_60px_rgba(0,0,0,0.6)]"
               style={{
-                borderLeftColor: upgrade.color,
-                borderLeftWidth: 3,
-                background: `linear-gradient(100deg, ${upgrade.color}14, transparent 40%), repeating-linear-gradient(${visual.pattern}, transparent 0 14px, ${upgrade.color}08 15px 16px), #070a11`,
-                boxShadow: `inset 0 0 40px rgba(0,0,0,.45)`,
+                borderTopColor: upgrade.color,
+                borderTopWidth: 4,
+                background: `linear-gradient(to bottom, ${upgrade.color}18, transparent 40%), repeating-linear-gradient(${visual.pattern}, transparent 0 14px, ${upgrade.color}08 15px 16px), #04060a`,
+                boxShadow: `inset 0 0 80px rgba(0,0,0,.4)`,
               }}
             >
-              <div className="flex shrink-0 items-center">
+              <div className="mb-8 flex justify-center mt-4">
                 <div
-                  className="flex h-16 w-16 rotate-45 items-center justify-center border bg-black/60 transition-transform group-hover:rotate-[50deg]"
+                  className="flex h-24 w-24 rotate-45 items-center justify-center border bg-black/80 transition-all duration-500 group-hover:rotate-[135deg] group-hover:scale-110"
                   style={{
                     borderColor: `${upgrade.color}aa`,
-                    boxShadow: `0 0 24px ${upgrade.color}33`,
+                    boxShadow: `0 0 40px ${upgrade.color}44`,
                   }}
                 >
                   <Icon
                     aria-hidden="true"
-                    className="h-7 w-7 -rotate-45"
+                    className="h-10 w-10 -rotate-45 transition-transform duration-500 group-hover:-rotate-[135deg]"
                     style={{ color: upgrade.color }}
                   />
                 </div>
               </div>
-              <div className="min-w-0 flex-1 py-0.5">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-display text-base tracking-[0.16em] text-white">
-                    {upgrade.label}
-                  </span>
-                  <span
-                    className="shrink-0 text-[9px] tracking-[0.3em]"
-                    style={{ color: upgrade.color }}
-                  >
-                    {upgrade.branch}
-                  </span>
-                </div>
-                <div className="mt-1.5 text-[11px] leading-relaxed text-gray-300">
+              
+              <div className="flex flex-col items-center text-center flex-1">
+                <span
+                  className="mb-3 text-[10px] tracking-[0.35em] uppercase"
+                  style={{ color: upgrade.color }}
+                >
+                  {upgrade.branch}
+                </span>
+                <span className="font-display mb-5 text-2xl tracking-[0.15em] text-white group-hover:text-cyan-50">
+                  {upgrade.label}
+                </span>
+                <div className="mb-8 text-[12px] leading-relaxed text-gray-400 group-hover:text-gray-200">
                   {upgrade.description}
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-1.5">
-                    {Array.from({ length: 5 }, (_, pip) => (
-                      <span
-                        key={pip}
-                        className="h-1.5 w-4"
-                        style={{
-                          background:
-                            pip < nextRank ? upgrade.color : "rgba(255,255,255,.12)",
-                          boxShadow: pip < nextRank ? `0 0 8px ${upgrade.color}66` : "none",
-                        }}
-                      />
-                    ))}
-                    <span className="ml-1 text-[8px] tracking-[0.24em] text-gray-500">
-                      RANK {nextRank}
-                    </span>
-                  </div>
-                  {evolutionHint ? (
+              </div>
+
+              <div className="mt-auto flex flex-col items-center gap-4 border-t border-white/10 pt-6">
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: 5 }, (_, pip) => (
                     <span
-                      className="truncate text-[9px] tracking-[0.18em]"
-                      style={{ color: evolutionHint.evolution.color }}
-                    >
-                      {evolutionHint.totalRemaining === 0
-                        ? `▸ EVOLUCIJA SPREMNA · ${evolutionHint.evolution.label}`
-                        : `▸ ${evolutionHint.totalRemaining} DO ${evolutionHint.evolution.label}`}
-                    </span>
-                  ) : null}
+                      key={pip}
+                      className="h-1.5 w-6 transition-all duration-300"
+                      style={{
+                        background:
+                          pip < nextRank ? upgrade.color : "rgba(255,255,255,.12)",
+                        boxShadow: pip < nextRank ? `0 0 12px ${upgrade.color}88` : "none",
+                      }}
+                    />
+                  ))}
                 </div>
+                <span className="text-[10px] tracking-[0.3em] text-gray-500">
+                  RANK {nextRank}
+                </span>
+                
+                {evolutionHint ? (
+                  <div
+                    className="mt-3 w-full rounded-sm bg-black/60 px-3 py-3 text-center text-[9px] tracking-[0.2em] transition-colors group-hover:bg-black/80"
+                    style={{ color: evolutionHint.evolution.color, border: `1px solid ${evolutionHint.evolution.color}33` }}
+                  >
+                    {evolutionHint.totalRemaining === 0
+                      ? `▸ EVOLUTION READY: ${evolutionHint.evolution.label}`
+                      : `▸ ${evolutionHint.totalRemaining} TO: ${evolutionHint.evolution.label}`}
+                  </div>
+                ) : null}
               </div>
             </button>
           );
         })}
       </div>
-    </OverlayFrame>
+    </div>
   );
 }
 
@@ -1627,6 +1671,7 @@ export default function ArenaGame() {
       <FixerContractHud />
       <ComboMilestoneBanner />
       <BossCataclysmBanner />
+      <BossBarkBanner />
       <StoryTransmissionHud />
       <PortalAccessHud />
       {testMode && phase !== "briefing" ? (
