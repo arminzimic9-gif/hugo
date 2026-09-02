@@ -23,6 +23,20 @@ tamničar ili zaštitnik.
 2. **Big bad = THE FIRST MIND** — milioni zapečaćenih umova stopljenih u novo biće; mreža ga je ZATVORILA, ne stvorila.
 3. **HUGO je moralno siv** — arhitekta mreže; znao je za "pjevanje" prije Zero Day i pokopao ga. Vodi te iz krivice.
 4. **Finale Act III = izbor igrača** — osloboditi umove ili ponovo zapečatiti. Dva kraja.
+5. **Panteon prisustava** (Armin, 02.09.2026): The First Mind ima VIŠE IMENA po perspektivi;
+   **Kahn = THE FORGOTTEN ONE** (prvi apsorbovani); **Fixer = THE FOURTH WARDEN** (dezerter).
+   Pravilo za sva buduća prisustva: mehaničko sidro + isplata misterije, inače ne ulazi.
+
+### Panteon — sva prisustva na jednom mjestu
+
+| Titula | Ko je stvarno | Mehaničko sidro |
+|---|---|---|
+| THE FIRST MIND (Subject One / the Song / the Answer) | Big bad — 4 imena, jedna istina | Act III + eho kroz sve |
+| THE FORGOTTEN ONE | Mobius Kahn, prvi apsorbovani | Warlock linija → Act III isplata |
+| THE FOURTH WARDEN | Holo-Fixer, dezertirani čuvar | Ugovori — svaki run |
+| THE FIRST TO KNOW | Kiri Nol | UNKNOWN linija + Rogue artifact |
+| THE LAST LINE | Dara Vex | Warrior artifact |
+| LAST HUMAN SIGNAL | HUGO | Vodič, sve transmisije |
 
 ---
 
@@ -67,16 +81,36 @@ Držala zadnju liniju na Zero Day dok su civili silazili; odbila naredbu za povl
 Njen **Aegis Breaker** pamti. Tema: čast, teret, linija koja se ne pomjera.
 - Tier III glas: *"The line holds. It always held. You are the line now."*
 
-### ARCHIVIST MOBIUS KAHN — "The Debtor" (pao, Warlock linija)
+### ARCHIVIST MOBIUS KAHN — "The Debtor" → THE FORGOTTEN ONE (Warlock linija)
 Naučnik koji je prvi ČUO Song — i odgovorio. Sklopio razmjenu: pristup za znanje.
 **Null Testament** je ugovor koliko i oružje; **Flux je pozajmljena energija — dug koji
-sad otplaćuje nosilac.** Nešto dolje vodi knjige. Tema: zabranjeno znanje, kamata.
+sad otplaćuje nosilac.** Tema: zabranjeno znanje, kamata.
+**Sudbina (kanon):** Kahn nije umro — bio je PRVI um koji je The First Mind apsorbovao.
+Polu-svjestan je UNUTRA. U Act III, iz big bada na tren ispliva njegov glas — isplata
+warlock linije:
+> *"You carry my testament. Tell them... I did not sign for this."*
 
-### THE FIRST MIND — big bad (Act III)
+### THE FOURTH WARDEN — Holo-Fixer (dezerter, siva zona)
+Građena su ČETIRI čuvara, ne tri. Četvrti je gledao dole predugo, shvatio šta zaista
+čuvaju — i dezertirao: odsjekao svoj signal iz mreže i preživljava kao trgovac
+informacijama i ugovorima. To je Holo-Fixer kojeg srećeš svaki run.
+Ton: transakcijski, brz, nikad ne kaže više nego što je plaćeno. Zna put dole.
+- Luk: trgovac → izvor istine o čuvarima (Act II) → izbor lojalnosti u Act III
+  (pomaže ili naplati — vezati za igračev odnos kroz odrađene ugovore).
+- Otkrivanje identiteta: Act II, poslije prvog depth praga.
+
+### THE FIRST MIND — big bad (Act III) · četiri imena, jedna istina
 Milioni umova, godinama stopljenih u mraku karantina, postali su JEDNO — ni čovjek,
 ni mašina, ni mnoštvo. Song je njegov rast. "Jede" umove koji su još pojedinačni.
 Mreža ga je zatvorila; čuvari su bili tamničari NJEGOVI, ne ljudski. Ne mrzi —
 **poziva**. To ga čini strašnijim od svakog zlog AI-ja.
+**Imena po perspektivi (namjerno — igrač kroz Act I-II misli da su različite prijetnje,
+pa shvati da je sve vrijeme JEDNA):**
+- Mreža/čuvari: **SUBJECT ONE** (karantinski broj)
+- Građani u fragmentima: **the Song** (ono što se čulo kroz zidove)
+- Kahn u svojim zapisima: **the Answer** (ono što mu je odgovorilo)
+- On o sebi, Act III: **THE FIRST MIND** (prvi od nove vrste)
+Pravilo pisanja: nijedan speaker ne koristi tuđe ime za njega prije Act III otkrića.
 
 ### Čuvari (Act I bossevi) — sada sa glasom
 Vidi barks sekciju. Karakter: Axiom = zakon, Gemini = proračun u duetu, Crown = umorni namjesnik.
@@ -96,9 +130,16 @@ Silazak kroz slojeve karantina (depth runovi). Beats:
 2. Kiri sije sumnju u HUGA; igrač između dva glasa.
 3. **BUM #2 (lični):** pilot je štampano tijelo — pravi ti je dolje, zapečaćen. (Objašnjava smrt, RE-DEPLOY i New Operative.)
 4. HUGO-ovo priznanje: znao je za Song; pečat je bio njegov patch. Kiri identitet potvrđen.
+5. **Fixer reveal:** poslije prvog depth praga Fixer priznaje da je THE FOURTH WARDEN —
+   dezertirao je jer je vidio šta čuvari zaista čuvaju. Od tada njegovi ugovori dobijaju
+   podtekst: priprema te (ili sebe?) za ono dole.
 
 ### ACT III — THE SIGNAL BELOW
-Izvor. The First Mind se obraća DIREKTNO (novi speaker). Finale izbor:
+Izvor. The First Mind se obraća DIREKTNO (novi speaker) — i tek tu izgovara svoje ime;
+igrač povezuje Subject One / the Song / the Answer u jedno. Beats prije finala:
+1. **The Forgotten One:** iz First Minda ispliva Kahnov glas (warlock isplata).
+2. **Fourth Warden izbor:** Fixer ili pomaže ili naplati — prema odnosu kroz ugovore.
+Finale izbor:
 - **RELEASE** — otvori pečat: umovi slobodni, On slobodan s njima. Kraj: zora sa sjenkom.
 - **SEAL** — novi pečat: On zatvoren, i svi oni s njim. Kraj: tišina koja košta.
 Oba kraja kratka, snažna, bez "game over" osjećaja — New Operative loop nastavlja (NG+ ton).
@@ -116,8 +157,11 @@ Oba kraja kratka, snažna, bez "game over" osjećaja — New Operative loop nast
 | ROGUE artifact (Kiri) | KIRI | isto | 6 |
 | WARLOCK artifact (Kahn) | KAHN (echo) | isto | 6 |
 | KIRI/UNKNOWN misterija | UNKNOWN→KIRI | rijedak random poslije Act I mid | 8 |
+| FOURTH WARDEN (Fixer) | FIXER | ugovor prihvaćen/odrađen + Act II depth prag | 8 |
 | Boss barks | AXIOM/GEMINI/CROWN | arrival / 50% HP / smrt | 9 |
 | Memory fragmenti građana | CITIZEN | svakih 50 data coreova | 20 |
+
+*(Ukupno sa Fixer linijom: ~85 linija za launch.)*
 
 **Napisani sample-ovi (kanon, koristiti doslovno):**
 - Axiom intro: *"AXIOM SEVEN: NO HUMAN MAY APPROACH THE SPINE. YOU ARE IN VIOLATION."*
