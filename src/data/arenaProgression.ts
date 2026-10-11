@@ -162,6 +162,7 @@ export type ArtifactWeaponDefinition = {
   name: string;
   prototype: string;
   color: string;
+  imageUrl?: string;
   traits: ArtifactTrait[];
 };
 
@@ -172,6 +173,7 @@ export const ARTIFACT_WEAPONS: Record<ArenaClassId, ArtifactWeaponDefinition> = 
     name: "AEGIS BREAKER",
     prototype: "BASTION PROTOTYPE GREATSWORD",
     color: "#35d9ff",
+    imageUrl: "/images/weapon_core.jpg",
     traits: [
       { id: "v_tempered", label: "TEMPERED EDGE", description: "+7% damage per rank.", why: "Improves every greatsword and projectile hit.", maxRank: 3, cost: 1, requires: [], requiredTier: 1, effectsPerRank: { damageMult: 1.07 } },
       { id: "v_bulwark", label: "BULWARK CORE", description: "+10 integrity per rank.", why: "Supports the class promise of staying in the front line.", maxRank: 3, cost: 1, requires: ["v_tempered"], requiredTier: 1, effectsPerRank: { maxHealthAdd: 10 } },
@@ -187,6 +189,7 @@ export const ARTIFACT_WEAPONS: Record<ArenaClassId, ArtifactWeaponDefinition> = 
     name: "NIGHT CIRCUIT",
     prototype: "WRAITH PROTOTYPE MONOBLADES",
     color: "#ff4b55",
+    imageUrl: "/images/weapon_holofixer.jpg",
     traits: [
       { id: "s_quicksilver", label: "QUICKSILVER", description: "Weapon cycle is 5% faster per rank.", why: "Directly strengthens Spectre's rapid-chain identity.", maxRank: 3, cost: 1, requires: [], requiredTier: 1, effectsPerRank: { fireIntervalMult: 0.95 } },
       { id: "s_predator", label: "PREDATOR STEP", description: "+4% speed per rank.", why: "Maintains Edge generation through movement.", maxRank: 3, cost: 1, requires: ["s_quicksilver"], requiredTier: 1, effectsPerRank: { speedMult: 1.04 } },
@@ -202,6 +205,7 @@ export const ARTIFACT_WEAPONS: Record<ArenaClassId, ArtifactWeaponDefinition> = 
     name: "NULL TESTAMENT",
     prototype: "RIFT PROTOTYPE GLAIVE",
     color: "#a66bff",
+    imageUrl: "/images/weapon_underground.jpg",
     traits: [
       { id: "r_voidreach", label: "VOID REACH", description: "+1.25m pickup radius per rank.", why: "Expands Riftweaver's zone of influence.", maxRank: 3, cost: 1, requires: [], requiredTier: 1, effectsPerRank: { pickupRadiusAdd: 1.25 } },
       { id: "r_soul", label: "SOUL CIRCUIT", description: "Kills restore 0.3 integrity per rank.", why: "Implements the class life-siphon promise.", maxRank: 3, cost: 1, requires: ["r_voidreach"], requiredTier: 1, effectsPerRank: { healPerKill: 0.3 } },

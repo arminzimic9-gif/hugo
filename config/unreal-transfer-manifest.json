@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "preparedAt": "2026-09-04",
+  "status": "surface_districts_authored",
+  "connectedAt": "2026-09-04",
+  "sourceProjectRoot": "/Users/arminzimic/hugo claude",
+  "proposedUnrealProjectRoot": "/Users/arminzimic/Unreal Projects/HUGONeuralOverload",
+  "engine": {
+    "version": "5.8.2",
+    "mcp": "Epic official Unreal MCP",
+    "endpoint": "http://127.0.0.1:8123/mcp",
+    "verified": true,
+    "discoveredToolsets": 52
+  },
+  "targetContentRoot": "/Game/HUGO",
+  "scale": {
+    "sourceUnit": "meter",
+    "unrealUnit": "centimeter",
+    "multiplier": 100
+  },
+  "policy": {
+    "preserveMasters": true,
+    "preferMastersOverWebCopies": true,
+    "allowMasterOverwrite": false,
+    "allowMeshyGeneration": false,
+    "liveMcpCallsMustBeSerial": true
+  },
+  "verticalSlice": {
+    "map": "/Game/HUGO/Maps/L_ArenaVerticalSlice",
+    "status": "legacy_greybox_retained",
+    "class": "vanguard",
+    "enemy": "drone",
+    "boss": "boss_axiom",
+    "goal": "Top-down movement, auto-fire, one XP drop, one upgrade and one telegraphed boss attack in PIE."
+  },
+  "surfaceDistricts": {
+    "defaultMap": "/Game/HUGO/Maps/Surface/L_Surface_NeonCrossing",
+    "maps": [
+      {
+        "id": "neon-crossing",
+        "path": "/Game/HUGO/Maps/Surface/L_Surface_NeonCrossing",
+        "taggedActorCount": 75,
+        "status": "authored_saved_verified"
+      },
+      {
+        "id": "freight-grid",
+        "path": "/Game/HUGO/Maps/Surface/L_Surface_FreightGrid",
+        "taggedActorCount": 74,
+        "status": "authored_saved_verified"
+      },
+      {
+        "id": "transit-ward",
+        "path": "/Game/HUGO/Maps/Surface/L_Surface_TransitWard",
+        "taggedActorCount": 79,
+        "status": "authored_saved_verified"
+      }
+    ],
+    "sourceChunkSizeMeters": 40,
+    "combinedDistrictSizeMeters": 120,
+    "environmentAssetsImported": 80,
+    "visualPass": "locked-exposure cyber night",
+    "navigation": "120m bounds and one Recast NavMesh saved per district",
+    "camera": "shared oblique top-down anchor saved per district",
+    "next": "district travel, combat volumes, player-camera binding, enemy path tests and portal travel"
+  },
+  "assets": [
+    {
+      "id": "pilot-male-rigged",
+      "role": "player",
+      "source": "assets/originals/meshy/pilot-male/rig-v1/rigged-character.fbx",
+      "fallback": "assets/originals/meshy/pilot-male/rig-v1/rigged-character.glb",
+      "target": "/Game/HUGO/Characters/Pilots/Vanguard/SK_PilotMale",
+      "unrealType": "SkeletalMesh",
+      "importStatus": "pending",
+      "notes": "Import first and make every animation reference this skeleton. Verify root motion is disabled for arena locomotion."
+    },
+    {
+      "id": "pilot-male-idle",
+      "role": "animation",
+      "source": "assets/originals/meshy/pilot-male/rig-v1/idle.fbx",
+      "target": "/Game/HUGO/Characters/Pilots/Vanguard/Animations/A_PilotMale_Idle",
+      "unrealType": "AnimSequence",
+      "importStatus": "pending",
+      "notes": "Reuse SK_PilotMale skeleton."
+    },
+    {
+      "id": "pilot-male-run",
+      "role": "animation",
+      "source": "assets/originals/meshy/pilot-male/rig-v1/run.fbx",
+      "target": "/Game/HUGO/Characters/Pilots/Vanguard/Animations/A_PilotMale_Run",
+      "unrealType": "AnimSequence",
+      "importStatus": "pending",
+      "notes": "Reuse SK_PilotMale skeleton and keep movement driven by CharacterMovement."
+    },
+    {
+      "id": "pilot-male-combat-stance",
+      "role": "animation",
+      "source": "assets/originals/meshy/pilot-male/rig-v1/combat-stance.fbx",
+      "target": "/Game/HUGO/Characters/Pilots/Vanguard/Animations/A_PilotMale_CombatStance",
+      "unrealType": "AnimSequence",
+      "importStatus": "pending",
+      "notes": "Reuse SK_PilotMale skeleton."
+    },
+    {
+      "id": "pilot-male-warrior-attack",
+      "role": "animation",
+      "source": "assets/originals/meshy/pilot-male/rig-v1/warrior-attack.fbx",
+      "target": "/Game/HUGO/Characters/Pilots/Vanguard/Animations/A_PilotMale_WarriorAttack",
+      "unrealType": "AnimSequence",
+      "importStatus": "pending",
+      "notes": "Reuse SK_PilotMale skeleton; convert to montage only after the base sequence previews correctly."
+    },
+    {
+      "id": "vanguard-artifact",
+      "role": "weapon",
+      "source": "assets/originals/meshy/relic-warrior-greatsword/relic-warrior-greatsword.glb",
+      "fallback": "public/models/weapons/relic-warrior-greatsword-web.glb",
+      "target": "/Game/HUGO/Weapons/Artifacts/Vanguard/SM_AegisBreaker",
+      "unrealType": "StaticMesh",
+      "importStatus": "pending",
+      "notes": "Attach to a verified hand socket; weapon is class-owned and boss milestones upgrade it rather than replace it."
+    },
+    {
+      "id": "arena-drone",
+      "role": "enemy",
+      "source": "assets/originals/meshy/arena-drone/arena-drone.glb",
+      "fallback": "public/models/enemies/arena-drone.glb",
+      "target": "/Game/HUGO/Enemies/Drone/SM_ArenaDrone",
+      "unrealType": "StaticMesh",
+      "importStatus": "pending",
+      "notes": "First AI target. Use simple collision and procedural hover/rotation."
+    },
+    {
+      "id": "axiom-warden",
+      "role": "boss",
+      "source": "assets/originals/meshy/cyber-sentinel-boss1/cyber-sentinel-boss1.glb",
+      "fallback": "public/models/bosses/cyber-sentinel-boss1.glb",
+      "target": "/Game/HUGO/Bosses/AxiomWarden/SM_AxiomWarden",
+      "unrealType": "StaticMesh",
+      "importStatus": "pending",
+      "notes": "No auto-rig. First boss uses procedural motion and a five-projectile Siege Fan."
+    },
+    {
+      "id": "data-core",
+      "role": "pickup",
+      "source": "assets/originals/meshy/data-core-v2/data-core-v2.glb",
+      "fallback": "public/models/pickups/data-core.glb",
+      "target": "/Game/HUGO/Pickups/DataCore/SM_DataCore",
+      "unrealType": "StaticMesh",
+      "importStatus": "pending",
+      "notes": "First XP pickup; visual rotation and attraction stay procedural."
+    },
+    {
+      "id": "cyber-wall-v2",
+      "role": "environment",
+      "source": "assets/originals/meshy/cyber-wall-segment-v2/cyber-wall-segment-v2.glb",
+      "fallback": "public/models/environment/cyber-wall-segment-v2.glb",
+      "target": "/Game/HUGO/Environment/Surface/Modular/cyber-wall-segment-v2/StaticMeshes/SM_CyberWall",
+      "unrealType": "StaticMesh",
+      "importStatus": "imported_verified",
+      "notes": "Imported with its source textures and material; used across all three authored surface districts."
+    }
+  ],
+  "dataSources": [
+    {
+      "source": "src/data/arena-enemies.json",
+      "target": "/Game/HUGO/Core/Data/DT_Enemies",
+      "rowStruct": "FEnemyRow",
+      "status": "pending_converter"
+    },
+    {
+      "source": "src/data/arena-spawn-tables.json",
+      "target": "/Game/HUGO/Core/Data/DT_SpawnPhases",
+      "rowStruct": "FSpawnPhaseRow",
+      "status": "pending_converter"
+    },
+    {
+      "source": "src/data/arena-operators.json",
+      "target": "/Game/HUGO/Core/Data/DT_Operators",
+      "rowStruct": "FOperatorRow",
+      "status": "pending_converter"
+    },
+    {
+      "source": "src/data/arena-abilities.json",
+      "target": "/Game/HUGO/Core/Data/DT_Abilities",
+      "rowStruct": "FAbilityRow",
+      "status": "pending_converter"
+    },
+    {
+      "source": "src/data/arena-upgrades.json",
+      "target": "/Game/HUGO/Core/Data/DT_Upgrades",
+      "rowStruct": "FUpgradeRow",
+      "status": "pending_converter"
+    }
+  ],
+  "deferredUntilSlicePasses": [
+    "female pilot and remaining animations",
+    "Spectre and Riftweaver classes",
+    "remaining four normal enemies",
+    "Gemini Choir and Hollow Crown",
+    "runtime district streaming controller and final environment polish",
+    "portal and Underground",
+    "permanent Skill Matrix and Artifact trees",
+    "crafting, gear and New Operative cycle",
+    "final audio and Niagara polish"
+  ]
+}

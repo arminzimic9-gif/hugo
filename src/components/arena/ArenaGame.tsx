@@ -62,15 +62,15 @@ const CAMERA = ARENA_CONFIG.camera;
 
 const UPGRADE_VISUALS: Record<
   string,
-  { Icon: LucideIcon; code: string; anchor: string; pattern: string }
+  { Icon: LucideIcon; code: string; anchor: string; pattern: string; imageUrl?: string }
 > = {
-  precision: { Icon: Crosshair, code: "LOCK", anchor: "18% 16%", pattern: "135deg" },
-  rapidfire: { Icon: Zap, code: "RPM", anchor: "82% 18%", pattern: "25deg" },
-  ricochet: { Icon: Share2, code: "CHAIN", anchor: "74% 76%", pattern: "160deg" },
-  cluster: { Icon: Bomb, code: "BURST", anchor: "22% 78%", pattern: "55deg" },
-  barrier: { Icon: Shield, code: "AEGIS", anchor: "50% 12%", pattern: "110deg" },
-  magnet2: { Icon: Magnet, code: "PULL", anchor: "16% 52%", pattern: "15deg" },
-  phaserush: { Icon: Gauge, code: "PHASE", anchor: "86% 48%", pattern: "145deg" },
+  precision: { Icon: Crosshair, code: "LOCK", anchor: "18% 16%", pattern: "135deg", imageUrl: "/images/upgrade_precision.jpg" },
+  rapidfire: { Icon: Zap, code: "RPM", anchor: "82% 18%", pattern: "25deg", imageUrl: "/images/upgrade_rapidfire.jpg" },
+  ricochet: { Icon: Share2, code: "CHAIN", anchor: "74% 76%", pattern: "160deg", imageUrl: "/images/upgrade_ricochet.jpg" },
+  cluster: { Icon: Bomb, code: "BURST", anchor: "22% 78%", pattern: "55deg", imageUrl: "/images/upgrade_cluster.jpg" },
+  barrier: { Icon: Shield, code: "AEGIS", anchor: "50% 12%", pattern: "110deg", imageUrl: "/images/upgrade_barrier.jpg" },
+  magnet2: { Icon: Magnet, code: "PULL", anchor: "16% 52%", pattern: "15deg", imageUrl: "/images/upgrade_magnet.jpg" },
+  phaserush: { Icon: Gauge, code: "PHASE", anchor: "86% 48%", pattern: "145deg", imageUrl: "/images/upgrade_phaserush.jpg" },
 };
 
 function computeRunRewards(victory: boolean, score: number) {
@@ -149,43 +149,43 @@ function AbilityBar() {
           ? Math.max(0, Math.min(1, (readyAt - now) / ability.cooldownMs))
           : 0;
         const remaining = Math.max(0, Math.ceil((readyAt - now) / 1000));
-        const AbilityIcon =
+        const abilityImageUrl =
           ability.kind === "nova"
-            ? Bomb
+            ? "/images/skill_nova.jpg"
             : ability.kind === "shield"
-              ? Shield
+              ? "/images/skill_barrier.jpg"
               : ability.kind === "slow"
-                ? Gauge
-                : Zap;
+                ? "/images/skill_timewarp.jpg"
+                : "/images/skill_overdrive.jpg";
         return (
           <div
             key={ability.id}
-            className="relative h-16 w-16 overflow-hidden border bg-[#050a10]/94 text-center backdrop-blur-md"
+            className="relative h-16 w-16 overflow-hidden flex flex-col items-center justify-center text-center"
             style={{
-              borderColor: unlocked ? `${ability.color}88` : "#1f2937",
               opacity: unlocked ? 1 : 0.32,
-              boxShadow:
-                unlocked && cooldownPct === 0
-                  ? `inset 0 0 18px ${ability.color}18, 0 0 14px ${ability.color}18`
-                  : "none",
+              filter: unlocked && cooldownPct === 0 ? `drop-shadow(0 0 8px ${ability.color}44)` : "none",
             }}
           >
             <div
-              className="absolute inset-x-0 bottom-0 bg-black/75 transition-[height] duration-100"
+              className="absolute inset-x-0 bottom-0 bg-black/75 transition-[height] duration-100 z-10"
               style={{ height: `${cooldownPct * 100}%` }}
             />
-            <div className="absolute left-1.5 top-1 font-display text-[9px] text-white/55">
+            <div className="absolute left-1.5 top-1 font-display text-[9px] text-white/70 z-20 font-bold" style={{ textShadow: "0 0 4px black" }}>
               {ability.key}
             </div>
-            <div className="relative flex h-11 items-end justify-center pb-1">
-              <AbilityIcon
-                size={21}
-                strokeWidth={1.45}
-                style={{ color: unlocked ? ability.color : "#4b5563" }}
+            <div className="relative flex h-full w-full items-center justify-center">
+              <img
+                src={abilityImageUrl}
+                alt={ability.kind}
+                className="h-16 w-16 object-contain"
+                style={{
+                  mixBlendMode: "screen",
+                  filter: unlocked ? "contrast(1.2)" : "grayscale(100%) opacity(40%)",
+                }}
               />
             </div>
-            <div className="relative truncate border-t border-white/[0.06] px-1 pt-1 text-[6px] tracking-[0.1em] text-gray-400">
-              {unlocked ? (remaining > 0 ? `${remaining}S` : ability.label) : "LOCKED"}
+            <div className="absolute bottom-0 w-full truncate px-1 pb-1 text-[7px] tracking-[0.1em] text-gray-400 z-20" style={{ textShadow: "0 0 4px black" }}>
+              {unlocked ? (cooldownPct > 0 ? `${Math.max(0, Math.ceil((readyAt - now) / 1000))}S` : ability.label) : "LOCKED"}
             </div>
             {unlocked && cooldownPct === 0 ? (
               <span
@@ -669,17 +669,26 @@ function UpgradeOverlay({ onPicked }: { onPicked: (id: string) => void }) {
             >
               <div className="mb-8 flex justify-center mt-4">
                 <div
-                  className="flex h-24 w-24 rotate-45 items-center justify-center border bg-black/80 transition-all duration-500 group-hover:rotate-[135deg] group-hover:scale-110"
-                  style={{
+                  className={`flex h-24 w-24 rotate-45 items-center justify-center border transition-all duration-500 group-hover:rotate-[135deg] group-hover:scale-110 ${visual.imageUrl ? 'border-transparent bg-transparent' : 'bg-black/80'}`}
+                  style={visual.imageUrl ? { boxShadow: `0 0 40px ${upgrade.color}44` } : {
                     borderColor: `${upgrade.color}aa`,
                     boxShadow: `0 0 40px ${upgrade.color}44`,
                   }}
                 >
-                  <Icon
-                    aria-hidden="true"
-                    className="h-10 w-10 -rotate-45 transition-transform duration-500 group-hover:-rotate-[135deg]"
-                    style={{ color: upgrade.color }}
-                  />
+                  {visual.imageUrl ? (
+                    <img 
+                      src={visual.imageUrl} 
+                      alt="" 
+                      className="h-32 w-32 max-w-none -rotate-45 transition-transform duration-500 group-hover:-rotate-[135deg] object-contain" 
+                      style={{ mixBlendMode: 'screen' }}
+                    />
+                  ) : (
+                    <Icon
+                      aria-hidden="true"
+                      className="h-10 w-10 -rotate-45 transition-transform duration-500 group-hover:-rotate-[135deg]"
+                      style={{ color: upgrade.color, filter: `drop-shadow(0 0 8px ${upgrade.color})` }}
+                    />
+                  )}
                 </div>
               </div>
               

@@ -140,6 +140,17 @@ export default function SkillsPage() {
     return reds[branch] || "#ff0000";
   };
 
+  const getBranchImage = (branchId: string) => {
+    switch (branchId) {
+      case "assault": return "/images/skill_branch_damage.jpg";
+      case "fortitude": return "/images/skill_branch_defense.jpg";
+      case "mobility": return "/images/skill_branch_mobility.jpg";
+      case "control":
+      case "convergence": return "/images/skill_branch_utility.jpg";
+      default: return null;
+    }
+  };
+
 
   useEffect(() => {
     const finishHydration = () => setMounted(true);
@@ -317,7 +328,13 @@ export default function SkillsPage() {
                 );
               })}
             </div>
-          <div className="relative flex-1 flex items-center justify-center overflow-auto rounded-lg border border-white/5 bg-[#030406] shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] custom-scrollbar">
+          <div 
+            className="relative flex-1 flex items-center justify-center overflow-auto rounded-lg border border-white/5 bg-[#030406] shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] custom-scrollbar"
+            style={{ backgroundImage: "url('/images/skill_tree_bg.jpg')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" }}
+          >
+            {/* Dark overlay to make nodes visible over the sci-fi background */}
+            <div className="absolute inset-0 bg-[#030406]/75" />
+            
             {/* Background grid */}
             <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
             
@@ -390,12 +407,16 @@ export default function SkillsPage() {
                     >
                       {isCore ? (
                         <Cpu className="h-5 w-5" />
-                      ) : state === "active" ? (
-                        <Check className="h-4 w-4" />
-                      ) : state === "ready" ? (
-                        <Zap className="h-4 w-4" />
                       ) : (
-                        <Lock className="h-3.5 w-3.5" />
+                        <img 
+                          src={getBranchImage(node.branch) || ""} 
+                          alt={node.branch} 
+                          className="h-[80%] w-[80%] rounded-full object-cover" 
+                          style={{ 
+                            mixBlendMode: "screen", 
+                            filter: state === "active" ? "contrast(1.2)" : state === "ready" ? "grayscale(50%) contrast(1.1)" : "grayscale(100%) opacity(30%)" 
+                          }} 
+                        />
                       )}
                     </CircleNode>
                     <span
@@ -570,7 +591,16 @@ export default function SkillsPage() {
                                        }}
                                     >
                                        {i === 0 ? (
-                                          <Sword className="h-8 w-8" style={{ color: artifactDefinition.color }} />
+                                          artifactDefinition.imageUrl ? (
+                                             <img 
+                                               src={artifactDefinition.imageUrl} 
+                                               alt={artifactDefinition.name} 
+                                               className="h-[80%] w-[80%] rounded-full object-cover" 
+                                               style={{ mixBlendMode: "screen", filter: "contrast(1.2)" }} 
+                                             />
+                                          ) : (
+                                             <Sword className="h-8 w-8" style={{ color: artifactDefinition.color }} />
+                                          )
                                        ) : maxed ? (
                                           <Check className="h-5 w-5" style={{ color: artifactDefinition.color }} />
                                        ) : available ? (

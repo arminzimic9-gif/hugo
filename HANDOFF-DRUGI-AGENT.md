@@ -5,6 +5,8 @@
 > Jezik UI-ja i priče: English  
 > Fokus sljedećeg agenta: gameplay logika, jasnoća sistema, UI/UX i završni boss playtest
 
+> Unreal status 04.09.2026: tri Surface distrikta su autorski složena, spašena i PIE-provjerena; detalji su u sekciji 6.1.
+
 ## 0. Prvo pročitaj ovo
 
 **Jedini aktivni source-of-truth projekat je:**
@@ -57,6 +59,29 @@ SHA-256:
 ```
 
 `node_modules` i `.next` nisu prenosivi source podaci; obnavljaju se iz `package-lock.json` i novim buildom. Ne treba ih kopirati u buduće backupe.
+
+Provjereni kompletni web backup neposredno prije Unreal MCP rada:
+
+```text
+/Users/arminzimic/Desktop/HUGO-backups/hugo-claude-pre-unreal-mcp-2026-09-04_11-33-32.tar.gz
+SHA-256: bac1d13dac4b951a04e4b55f9855312d5739ac2ba82fe4d7cb0eb29c0aff62ef
+```
+
+Provjereni Unreal checkpoint nakon izrade tri Surface distrikta:
+
+```text
+/Users/arminzimic/Desktop/HUGO-backups/HUGONeuralOverload-surface-districts-2026-09-04_21-10.tar.gz
+SHA-256: 7def28a0361e1bf8dd0b52fb6dc54199ea531c80ca447d714fbaa110faec9ab8
+```
+
+Najnoviji Unreal checkpoint nakon dodavanja navigacije i camera anchora:
+
+```text
+/Users/arminzimic/Desktop/HUGO-backups/HUGONeuralOverload-surface-gameplay-scaffold-2026-09-04_21-15.tar.gz
+SHA-256: 729f0f750af4ce0bb1cbaf35c19fe4c7860643e9081b0b432129afae1b96881f
+```
+
+Unreal checkpoint uključuje `Config`, `Content`, tri `.umap` fajla, World Partition external actore, importovane assete, skripte i projekat. Isključeni su samo regenerabilni `Saved`, `Intermediate`, `DerivedDataCache` i `Binaries` direktoriji.
 
 ## 2. Produkt odluka korisnika
 
@@ -316,6 +341,53 @@ Prije hardkodiranja nove vrijednosti provjeriti da li pripada ovdje.
 /Users/arminzimic/hugo claude/config/meshy-assets.json      # Meshy batch limiti i definicije
 ```
 
+### 6.1 Unreal Engine 5.8 nastavak
+
+Unreal projekat:
+
+```text
+/Users/arminzimic/Unreal Projects/HUGONeuralOverload/HUGONeuralOverload.uproject
+```
+
+Tri stvarne Surface mape izvedene iz web Arena district jezika:
+
+```text
+/Game/HUGO/Maps/Surface/L_Surface_NeonCrossing   # default, 75 tagged actora
+/Game/HUGO/Maps/Surface/L_Surface_FreightGrid    # 74 tagged actora
+/Game/HUGO/Maps/Surface/L_Surface_TransitWard    # 79 tagged actora
+```
+
+Legacy greybox je sačuvan samo za poređenje:
+
+```text
+/Game/HUGO/Maps/L_ArenaVerticalSlice
+```
+
+Unreal environment sadržaj:
+
+```text
+/Users/arminzimic/Unreal Projects/HUGONeuralOverload/Content/HUGO/Environment/Surface
+```
+
+Uvezeno je 80 `.uasset` fajlova iz 14 sačuvanih mesh mastera: tornjevi, skladište, reactor/relay, pyloni, kontejneri, zidovi, barijere, gate, rampa, dva wreck modela i cyber drvo. Master GLB fajlovi u web projektu nisu dirani.
+
+Dokumentacija i machine-readable stanje:
+
+```text
+/Users/arminzimic/Unreal Projects/HUGONeuralOverload/README.md
+/Users/arminzimic/Unreal Projects/HUGONeuralOverload/Docs/SURFACE-DISTRICTS.md
+/Users/arminzimic/Unreal Projects/HUGONeuralOverload/Config/surface-districts.json
+/Users/arminzimic/hugo claude/config/unreal-transfer-manifest.json
+```
+
+MCP endpoint je `http://127.0.0.1:8123/mcp`; auto-start je podešen u `Saved/Config/MacEditor/EditorPerProjectUserSettings.ini`. Ako editor ne otvori projekat ili MCP ne krene, pokrenuti:
+
+```bash
+open -n -a '/Users/Shared/Epic Games/UE_5.8/Engine/Binaries/Mac/UnrealEditor.app' --args '/Users/arminzimic/Unreal Projects/HUGONeuralOverload/HUGONeuralOverload.uproject' -ModelContextProtocolStartServer -ModelContextProtocolPort=8123
+```
+
+Neon Crossing je 04.09.2026 prošao PIE smoke test: World Partition initialization, BeginPlay i stop session rade; Map Check je 0 errors / 0 warnings. Sva tri distrikta imaju spašen 120 x 120 m NavMesh bounds, jedan Recast NavMesh i zajednički oblique top-down camera anchor. Sljedeći Unreal gameplay sloj je district selection/travel, boss spawn volumes, enemy path test, vezivanje player controllera na kameru i funkcionalni Underground portal. Ne generisati nova oružja: koriste se originalna HUGO Artifact oružja.
+
 ## 7. Šta sljedeći agent prvo treba uraditi
 
 ### Prvih 15 minuta
@@ -380,4 +452,3 @@ Prije hardkodiranja nove vrijednosti provjeriti da li pripada ovdje.
 - Portal i Underground rade nakon Boss III i poslije `New Operative` ciklusa.
 - `npx tsc --noEmit`, `npm run build` i `git diff --check` prolaze.
 - Nijedan master asset nije izbrisan/prepisan i nije potrošen novi Meshy kredit bez potrebe.
-

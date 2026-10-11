@@ -60,7 +60,7 @@ type SectorCard = {
   route?: string;
 };
 
-type ControlDeckView = "missions" | "classes" | "gear" | "systems" | "awards";
+type ControlDeckView = "main" | "missions" | "classes" | "gear" | "systems" | "awards";
 
 const SECTORS: SectorCard[] = [
   {
@@ -77,15 +77,18 @@ const SECTORS: SectorCard[] = [
 ];
 
 const CONTROL_DECK_VIEWS: Array<{
-  id: ControlDeckView;
+  id: Exclude<ControlDeckView, "main">;
   label: string;
   icon: typeof Radio;
+  color: string;
+  desc: string;
+  bgImage: string;
 }> = [
-  { id: "missions", label: "MISSIONS", icon: Radio },
-  { id: "classes", label: "CLASSES", icon: Swords },
-  { id: "gear", label: "GEAR", icon: Boxes },
-  { id: "systems", label: "SYSTEMS", icon: Cpu },
-  { id: "awards", label: "AWARDS", icon: Trophy },
+  { id: "missions", label: "MISSIONS", icon: Radio, color: "#ef4444", desc: "Deploy to combat zones", bgImage: "/images/maps/cyberia/city-run-bg.webp" },
+  { id: "classes", label: "CLASSES", icon: Swords, color: "#a855f7", desc: "Manage operative archetypes", bgImage: "/images/maps/cyberia/chaos-intro-bg.webp" },
+  { id: "gear", label: "GEAR", icon: Boxes, color: "#f97316", desc: "Equip and upgrade hardware", bgImage: "/images/skill_tree_bg_scifi.jpg" },
+  { id: "systems", label: "SYSTEMS", icon: Cpu, color: "#06b6d4", desc: "View core telemetry", bgImage: "/images/maps/cyberia/city-run-bg.webp" },
+  { id: "awards", label: "AWARDS", icon: Trophy, color: "#eab308", desc: "Track achievements", bgImage: "/images/skill_tree_bg.jpg" },
 ];
 
 const GEAR_SLOT_META: Record<ArenaGearSlot, { label: string; Icon: typeof Swords }> = {
@@ -118,7 +121,7 @@ export default function NeuralHub() {
   } = useGameStore();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [activeView, setActiveView] = useState<ControlDeckView>("missions");
+  const [activeView, setActiveView] = useState<ControlDeckView>("main");
   const [selectedSectorId, setSelectedSectorId] = useState(ARENA_TEST_SECTOR_ID);
   const [selectedLevel, setSelectedLevel] = useState(ARENA_TEST_LEVEL);
   const pointerX = useMotionValue(0);
@@ -244,33 +247,17 @@ export default function NeuralHub() {
             <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-red-600/35 bg-red-600/5">
               <CircleDot className="h-5 w-5 text-red-500" />
             </div>
-            <div>
+            <div 
+              className={`cursor-pointer transition-colors ${activeView !== "main" ? "hover:opacity-80" : ""}`}
+              onClick={() => setActiveView("main")}
+              title={activeView !== "main" ? "Return to Control Deck" : undefined}
+            >
               <div className="font-display text-lg tracking-normal text-white">HUGO</div>
               <div className="font-mono text-[8px] uppercase tracking-normal text-red-500/70">
-                Control Deck / {activeView}
+                Control Deck {activeView !== "main" && `/ ${activeView}`}
               </div>
             </div>
           </div>
-
-          <nav className="order-3 mt-3 grid w-full grid-cols-5 border border-white/10 md:order-none md:mt-0 md:w-auto md:min-w-[500px]" aria-label="Control Deck sections">
-            {CONTROL_DECK_VIEWS.map(({ id, label, icon: Icon }) => {
-              const selected = activeView === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setActiveView(id)}
-                  aria-pressed={selected}
-                  className="relative flex h-10 min-w-0 items-center justify-center gap-2 border-r border-white/10 px-2 font-mono text-[8px] uppercase tracking-normal text-gray-500 transition-colors last:border-r-0 hover:text-white"
-                  style={{ color: selected ? activeSector.color : undefined, background: selected ? `${activeSector.color}10` : undefined }}
-                >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{label}</span>
-                  {selected && <span className="absolute inset-x-0 bottom-0 h-px" style={{ background: activeSector.color }} />}
-                </button>
-              );
-            })}
-          </nav>
 
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
@@ -290,7 +277,57 @@ export default function NeuralHub() {
         </div>
       </header>
 
-      <div className="relative z-10 min-h-[calc(100vh-116px)] lg:h-[calc(100vh-80px)] lg:min-h-0">
+      {activeView === "main" && (
+        <div className="absolute inset-0 z-10 flex overflow-hidden bg-[#020405]">
+          {CONTROL_DECK_VIEWS.map(({ id, label, icon: Icon, color, desc, bgImage }) => (
+            <button
+              key={id}
+              onClick={() => setActiveView(id)}
+              className="group relative flex-1 -skew-x-[12deg] border-r border-white/5 bg-[#050a10] transition-all duration-700 ease-out hover:flex-[2.5] hover:z-20 overflow-hidden"
+              style={{ transformOrigin: "bottom" }}
+            >
+              {/* Background Image that zooms on hover */}
+              <div 
+                className="absolute inset-[-150px] skew-x-[12deg] bg-cover bg-center bg-no-repeat opacity-30 grayscale transition-all duration-700 ease-out group-hover:scale-110 group-hover:opacity-80 group-hover:grayscale-0"
+                style={{ backgroundImage: `url(${bgImage})` }}
+              >
+                {/* Color overlay */}
+                <div 
+                  className="absolute inset-0 transition-opacity duration-700 ease-out group-hover:opacity-40" 
+                  style={{ background: `linear-gradient(to top, #000 0%, ${color}40 50%, #000 100%)` }}
+                />
+              </div>
+              
+              {/* Content Un-skewed */}
+              <div className="absolute inset-0 flex skew-x-[12deg] flex-col items-center justify-center p-8 transition-transform duration-700 ease-out group-hover:scale-110">
+                <div className="mb-6">
+                  <Icon
+                    aria-hidden="true"
+                    className="h-16 w-16 opacity-50 transition-all duration-700 ease-out group-hover:opacity-100 group-hover:-translate-y-4"
+                    style={{ color: color, filter: `drop-shadow(0 0 12px ${color})` }}
+                  />
+                </div>
+                
+                <div className="text-center">
+                  <div className="font-display mb-2 text-3xl tracking-[0.2em] text-white/50 transition-all duration-700 ease-out group-hover:text-white group-hover:text-4xl group-hover:drop-shadow-[0_0_15px_rgba(255,255,255,0.8)]">
+                    {label}
+                  </div>
+                  <div className="font-mono text-[10px] tracking-widest text-gray-400 uppercase opacity-0 transition-all duration-700 ease-out group-hover:opacity-100 group-hover:translate-y-2">
+                    {desc}
+                  </div>
+                </div>
+                
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 font-display text-[150px] text-white/[0.01] transition-all duration-700 ease-out group-hover:text-white/[0.05] group-hover:-translate-y-8 pointer-events-none">
+                  {id.substring(0, 2).toUpperCase()}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeView !== "main" && (
+        <div className="relative z-10 min-h-[calc(100vh-116px)] lg:h-[calc(100vh-80px)] lg:min-h-0">
         {activeView === "missions" && (
           <motion.section
             key="missions"
@@ -842,7 +879,8 @@ export default function NeuralHub() {
             </div>
           </motion.section>
         )}
-      </div>
+        </div>
+      )}
     </main>
   );
 }
